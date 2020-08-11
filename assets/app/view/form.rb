@@ -47,7 +47,7 @@ module View
     end
 
     # rubocop:disable Layout/LineLength
-    def render_input(label, placeholder: '', id:, el: 'input', type: 'text', attrs: {}, on: {}, container_style: {}, label_style: {}, input_style: {}, children: [])
+    def render_input(label, placeholder: '', id:, el: 'input', type: 'text', attrs: {}, on: {}, container_style: {}, label_style: {}, input_style: {}, children: [], label_first: true)
       # rubocop:enable Layout/LineLength
       label_props = {
         style: {
@@ -68,10 +68,12 @@ module View
       input_props[:attrs][:placeholder] = placeholder if placeholder != ''
       input = h(el, input_props, children)
       @inputs[id] = input
+      children = [h(:label, label_props, label), input]
+      children.reverse! unless label_first
       h(
         'div.input-container',
         { style: { **container_style } },
-        [h(:label, label_props, label), input]
+        children
       )
     end
 
