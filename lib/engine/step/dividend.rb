@@ -32,7 +32,8 @@ module Engine
         revenue = @game.routes_revenue(routes)
         dividend_types.map do |type|
           payout = send(type, entity, revenue)
-          [type, payout.merge(share_price_change(entity, revenue - payout[:company]))]
+          payout[:divs_to_corporation] = corporation_dividends(entity, payout[:per_share])
+          [type, payout.merge(share_price_change(entity, revenue - payout[:corporation]))]
         end.to_h
       end
 
@@ -54,22 +55,27 @@ module Engine
 
         @round.routes = []
 
-        unless Dividend::DIVIDEND_TYPES.include?(kind)
-          @log << "#{entity.name} runs for #{@game.format_currency(revenue)} and pays #{action.kind}"
-        end
+        log_run_payout(entity, kind, revenue, action, payout)
 
-        if payout[:company].positive?
-          @log << "#{entity.name} withholds #{@game.format_currency(payout[:company])}"
-          @game.bank.spend(payout[:company], entity)
-        elsif payout[:per_share].zero?
-          @log << "#{entity.name} does not run"
-        end
+        @game.bank.spend(payout[:corporation], entity) if payout[:corporation].positive?
 
-        payout_shares(entity, revenue - payout[:company]) if payout[:per_share].positive?
+        payout_shares(entity, revenue - payout[:corporation]) if payout[:per_share].positive?
 
         change_share_price(entity, payout)
 
         pass!
+      end
+
+      def log_run_payout(entity, kind, revenue, action, payout)
+        unless Dividend::DIVIDEND_TYPES.include?(kind)
+          @log << "#{entity.name} runs for #{@game.format_currency(revenue)} and pays #{action.kind}"
+        end
+
+        if payout[:corporation].positive?
+          @log << "#{entity.name} withholds #{@game.format_currency(payout[:corporation])}"
+        elsif payout[:per_share].zero?
+          @log << "#{entity.name} does not run"
+        end
       end
 
       def share_price_change(_entity, revenue)
@@ -81,59 +87,75 @@ module Engine
       end
 
       def withhold(_entity, revenue)
-        { company: revenue, per_share: 0 }
+        { corporation: revenue, per_share: 0 }
       end
 
       def payout(entity, revenue)
-        { company: 0, per_share: payout_per_share(entity, revenue)[0] }
+        { corporation: 0, per_share: payout_per_share(entity, revenue) }
       end
 
-      def payout_per_share(_entity_, revenue)
-        # TODO: actually count shares when we implement 1817, 18Ireland, 18US, etc
-        share_count = 10
-        per_share = revenue / share_count
-        [per_share, share_count]
+      def dividends_for_entity(entity, holder, per_share)
+        # 1817 2 share half pay uses floats, for 18MEX num_shares can be a float for NdM
+        (holder.num_shares_of(entity, ceil: false) * per_share).ceil
+      end
+
+      def corporation_dividends(entity, per_share)
+        return 0 if entity.minor?
+
+        dividends_for_entity(entity, holder_for_corporation(entity), per_share)
+      end
+
+      def payout_per_share(entity, revenue)
+        revenue / entity.total_shares
+      end
+
+      def holder_for_corporation(entity)
+        entity.capitalization == :incremental ? entity : @game.share_pool
       end
 
       def payout_shares(entity, revenue)
-        per_share, share_count = payout_per_share(entity, revenue)
-        @log << "#{entity.name} pays out #{@game.format_currency(revenue)} = "\
-                "#{@game.format_currency(per_share)} x #{share_count} shares"
+        per_share = payout_per_share(entity, revenue)
 
+        payouts = {}
         @game.players.each do |player|
-          payout_entity(entity, player, per_share)
+          payout_entity(entity, player, per_share, payouts)
         end
 
-        if entity.capitalization == :incremental
-          payout_entity(entity, entity, per_share, entity)
-        else
-          payout_entity(entity, @game.share_pool, per_share, entity)
-        end
+        payout_entity(entity, holder_for_corporation(entity), per_share, payouts, entity)
+        receivers = payouts
+                      .sort_by { |_r, c| -c }
+                      .map { |receiver, cash| "#{@game.format_currency(cash)} to #{receiver.name}" }.join(', ')
+
+        @log << "#{entity.name} pays out #{@game.format_currency(revenue)} = "\
+                        "#{@game.format_currency(per_share)} (#{receivers})"
       end
 
-      def payout_entity(entity, holder, per_share, receiver = nil)
-        return if (percent = holder.percent_of(entity)).zero?
+      def payout_entity(entity, holder, per_share, payouts, receiver = nil)
+        amount = dividends_for_entity(entity, holder, per_share)
+        return if amount.zero?
 
         receiver ||= holder
-        # TODO: actually count shares when we implement 1817, 18Ireland, 18US, etc
-        share_count = 10
-        shares = percent / (100 / share_count)
-        amount = shares * per_share
-        @log << "#{receiver.name} receives #{@game.format_currency(amount)} = "\
-                "#{@game.format_currency(per_share)} x #{shares} shares"
-        @game.bank.spend(amount, receiver)
+        payouts[receiver] = amount
+        @game.bank.spend(amount, receiver, check_positive: false)
       end
 
       def change_share_price(entity, payout)
         return unless payout[:share_direction]
 
         prev = entity.share_price.price
-        payout[:share_times].times do
-          case payout[:share_direction]
-          when :left
-            @game.stock_market.move_left(entity)
-          when :right
-            @game.stock_market.move_right(entity)
+
+        Array(payout[:share_times]).zip(Array(payout[:share_direction])).each do |share_times, direction|
+          share_times.times do
+            case direction
+            when :left
+              @game.stock_market.move_left(entity)
+            when :right
+              @game.stock_market.move_right(entity)
+            when :up
+              @game.stock_market.move_up(entity)
+            when :down
+              @game.stock_market.move_down(entity)
+            end
           end
         end
         @game.log_share_price(entity, prev)

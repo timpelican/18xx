@@ -22,6 +22,13 @@ These attributes may be set for all ability types
 - `count_per_or`: The number of times the ability may be used in each OR; the
   property `count_this_or` is reset to 0 at the start of each OR and increments
   each time the ability is used
+- `show_count`: If the count used/count started should be shown to the user; this
+  this assumes that the ability can be partially used and also that the entity only has
+  one ability with show_count = true
+
+## additional_token
+
+Adds 'count' additional tokens to a purchasing company (1817)
 
 ## assign_corporation
 
@@ -64,20 +71,26 @@ Describe when the company closes, using the `when` attribute.
 - `corporation'`: If `when` is set to `"train"`, this value is the name
 of the corporation whose train purchase closes this company.
 
+## description
+
+Provide a description for an ability that is implemented outside of the ability framework.
+
+- `description`: Description of the ability.
+
 ## exchange
 
 Exchange this company for a share of a corporation.
 
-- `corporation`: The corporation whose share may be exchanged.
+- `corporation`: The corporation whose share may be exchanged. Use `"any"` to allow for all corporations.
 - `from`: Where the share may be take from, either `"ipo"`,
   `"market"`, or an array containing both.
 
 ## hex_bonus
 
-????
+Give a route bonus if at least one of the hexes are included in the route.
 
-- `hexes`:
-- `amount`:
+- `hexes`: Name of hexes that gives a bonus.
+- `amount`: Revenue bonus.
 
 ## no_buy
 
@@ -134,6 +147,7 @@ Generate extra revenue when tiles are laid on specified terrain types.
 
 - `terrain`: Terrain type for this ability
 - `income`: Extra income per tile lay
+- `owner_only`: Does this income apply to any tile lay (1882 Tresle Bridge) or just the owner (1817 Mountain Engineers)
 
 ## tile_lay
 
@@ -142,6 +156,7 @@ normal tile lay actions.
 
 - `hexes`: Array of hex coordinates where tiles may be laid.
 - `tiles`: Array of tile numbers which may be laid.
+- `cost`: Cost to use the ability.
 - `free`: If true, the tiles are laid with 0 cost. Default false.
 - `discount`: Discount the cost of laying the tile by the given
   amount. Default 0.
@@ -151,14 +166,31 @@ normal tile lay actions.
   connect to each other. Default true.
 - `blocks`: If true and `count` is greater than 1, all tile lays must
   be performed at once.
+- `reachable`: If true, when tile layed, a check is done if one of the
+  controlling corporation's station tokens are reachable; if not a game
+  error is triggered. Default false.
+
+## train_buy
+
+Modify train buy in some way.
+
+- `face_value`: If true, any inter corporation train buy must be at
+  face value. Default false.
+
+## train_limit
+
+Modify train limit in some way.
+
+- `increase`: If positive, this will increase the train limit with this
+  amount in all faces. Default 0.
 
 ## token
 
-Modified station token placment
+Modified station token placement
 
 - `hexes`: Array of hex coordinates where this ability may be used
 - `price`: Price for placing token
 - `teleport_price`: If present, this ability may be used to place a
   token without connectivity, for the given price.
 - `extra`: If true, this ability may be used in addition to the turn's
-  normal token placment step. Default false.
+  normal token placement step. Default false.

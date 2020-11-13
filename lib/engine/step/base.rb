@@ -50,11 +50,13 @@ module Engine
       end
 
       def skip!
-        log_skip(current_entity) unless @acted
+        log_skip(current_entity) if !@acted && current_entity
         pass!
       end
 
       def current_actions
+        return [] if current_entity&.closed?
+
         current_entity ? actions(current_entity) : []
       end
 
@@ -78,15 +80,16 @@ module Engine
         true
       end
 
-      def sequential?
-        false
-      end
-
       def setup; end
 
       def unpass!
         super
         @acted = false
+      end
+
+      # see assets/app/view/game/help.rb
+      def help
+        ''
       end
 
       private

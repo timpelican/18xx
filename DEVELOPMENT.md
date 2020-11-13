@@ -3,6 +3,8 @@
 See [`TILES.md`](/TILES.md) for some details and useful routes for tile
 development.
 
+See [Developing on Windows](https://github.com/tobymao/18xx/wiki/Developing-For-18xx.games#developing-on-windows) to get setup on Windows
+
 ### Droplet configuration
 
 If configuring the droplet from scratch, these are the requirements:
@@ -58,6 +60,27 @@ with UID 1000. The default Unix UID is 1000, so if you were the first user
 created on your host machine, you are probably 1000. This means that any data
 postgres writes in the container should be owned by you, and you should have no
 trouble reading/writing it.
+
+To restore the local database from a `db.backup.gz`:
+
+1. stop your local stack and clear out your local db with `rm -rf db/data`, then
+   start the stack
+
+2. copy backup to db container
+
+```
+CONTAINER_ID=$(docker ps | grep 18xxgames_db | awk '{print $1}')
+docker cp db.backup.gz $CONTAINER_ID:/home/db
+```
+
+3. go to the container with `docker-compose exec db bash`, then run these
+   commands:
+
+```
+cd /home/db
+gzip -d db.backup.gz
+pg_restore -U root -d 18xx_development db.backup
+```
 
 #### Docker Documentation
 

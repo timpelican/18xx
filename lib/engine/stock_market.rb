@@ -6,16 +6,17 @@ module Engine
   class StockMarket
     attr_reader :market, :par_prices
 
-    def initialize(market, unlimited_colors, multiple_buy_colors: [])
+    def initialize(market, unlimited_types, multiple_buy_types: [], zigzag: nil)
       @par_prices = []
+      @zigzag = zigzag
       @market = market.map.with_index do |row, r_index|
         row.map.with_index do |code, c_index|
           price = SharePrice.from_code(code,
                                        r_index,
                                        c_index,
-                                       unlimited_colors,
-                                       multiple_buy_colors: multiple_buy_colors)
-          @par_prices << price if price&.can_par
+                                       unlimited_types,
+                                       multiple_buy_types: multiple_buy_types)
+          @par_prices << price if price&.can_par?
           price
         end
       end
@@ -27,6 +28,10 @@ module Engine
 
     def one_d?
       @one_d ||= @market.one?
+    end
+
+    def zigzag?
+      !!@zigzag
     end
 
     def set_par(corporation, share_price)
@@ -74,7 +79,11 @@ module Engine
     end
 
     def find_share_price(corporation, directions)
-      r, c = corporation.share_price.coordinates
+      find_relative_share_price(corporation.share_price, directions)
+    end
+
+    def find_relative_share_price(share, directions)
+      r, c = share.coordinates
 
       prices = [share_price(r, c)]
 
@@ -101,20 +110,21 @@ module Engine
       @max_reached
     end
 
+    def move(corporation, row, column, force: false)
+      share_price = share_price(row, column)
+      return if share_price == corporation.share_price
+      return if !force && !share_price.normal_movement?
+
+      corporation.share_price.corporations.delete(corporation)
+      corporation.share_price = share_price
+      @max_reached = true if share_price.end_game_trigger?
+      share_price.corporations << corporation
+    end
+
     private
 
     def share_price(row, column)
       @market[row]&.[](column)
-    end
-
-    def move(corporation, row, column)
-      share_price = share_price(row, column)
-      return if share_price == corporation.share_price
-
-      corporation.share_price.corporations.delete(corporation)
-      corporation.share_price = share_price
-      @max_reached = true if share_price.end_game_trigger
-      share_price.corporations << corporation
     end
   end
 end

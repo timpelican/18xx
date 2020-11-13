@@ -23,8 +23,8 @@ module View
 
       def render
         @hexes = @game.hexes.dup
-        @cols = @hexes.map(&:x).uniq.sort.map(&:next)
-        @rows = @hexes.map(&:y).uniq.sort.map(&:next)
+        @cols = @hexes.reject(&:ignore_for_axes).map(&:x).uniq.sort.map(&:next)
+        @rows = @hexes.reject(&:ignore_for_axes).map(&:y).uniq.sort.map(&:next)
         @layout = @game.layout
 
         step = @game.round.active_step(@selected_company)
@@ -46,6 +46,7 @@ module View
             actions: actions,
           )
         end
+        @hexes.compact!
 
         children = [render_map]
 
@@ -132,7 +133,7 @@ module View
           [(@cols.size * 1.5 + 0.5) * EDGE_LENGTH + 2 * GAP,
            (@rows.size / 2 + 0.5) * SIDE_TO_SIDE + 2 * GAP]
         else
-          [(@cols.size / 2 + 0.5) * SIDE_TO_SIDE + 2 * GAP,
+          [((@cols.size / 2 + 0.5) * SIDE_TO_SIDE + 2 * GAP) + 1,
            (@rows.size * 1.5 + 0.5) * EDGE_LENGTH + 2 * GAP]
         end
       end

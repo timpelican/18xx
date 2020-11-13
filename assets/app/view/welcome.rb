@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'lib/publisher'
+
 module View
   class Welcome < Snabberb::Component
     needs :app_route, default: nil, store: true
@@ -15,23 +17,14 @@ module View
 
     def render_notification
       message = <<~MESSAGE
-        <p>The two player variant has now been implemented for 18Chesapeake!</p>
-        <p>All Microsoft email domains are blocking 18xx.games. MSN, Hotmail, Live, etc. So you will not be receiving anything.</p>
-        <p>18AL is available for alpha testing. 1846 and 1882 are both in beta.</p>
         <p>Please file <a href='https://github.com/tobymao/18xx/issues'>issues and ideas</a> on
         <a href='https://github.com/tobymao/18xx/issues'>GitHub</a>.<br>
         If you have any questions, check out the <a href="https://github.com/tobymao/18xx/wiki/FAQ">FAQ</a> and other
         resources in our <a href='https://github.com/tobymao/18xx/wiki'>Wiki!</a>
         </p>
 
-        <p>If you're looking to buy these games, please check out
-        <a href='https://all-aboardgames.com'>All-Aboard Games</a>,
-        <a href='https://www.grandtrunkgames.com'>Grand Trunk Games</a>,
-        and <a href='https://www.gmtgames.com/'>GMT Games</a>.
-        </p>
-
-        <p>You can support this project on <a href='https://www.patreon.com/18xxgames'>Patreon</a>.
-        </p>
+        <p>Support our publishers: #{Lib::Publisher.link_list.join}.</p>
+        <p>You can support this project on <a href='https://www.patreon.com/18xxgames'>Patreon</a>.</p>
 
         <p>Consider joining the
         <a href='https://join.slack.com/t/18xxgames/shared_invite/zt-8ksy028m-CSZC~G5QtiFv60_jdqqulQ'>18xx slack</a>.
@@ -58,8 +51,8 @@ module View
     def render_introduction
       message = <<~MESSAGE
         <p>18xx.games is a website where you can play async or real-time 18xx games (based on the system originally devised by the brilliant Francis Tresham)!
-        <p>Right now, 1889, 18Chesapeake, 1846, 1836Jr30, and 1882 are fully implemented but I'm planning on doing many more in the future.
-        If you are new to 18xx games then 1889 or 18Chesapeake are good games to begin with.</p>
+        <p>Right now, 1817, 1836Jr30, 1846, 1882, 1889, 18AL, 18Chesapeake, 18GA, 18 Los Angeles, 18MEX, 18MS, and 18TN are implemented.</br>
+        If you are new to 18xx games then 1889, 18Chesapeake, or 18MS are good games to begin with.</p>
 
         <p>You can play locally with hot seat mode without an account. If you want to play multiplayer, you'll need to create an account.</p>
 

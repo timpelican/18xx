@@ -19,6 +19,7 @@ module View
     needs :user
     needs :disable_user_errors
     needs :connected, default: false, store: true
+    needs :before_process_pass, default: -> {}, store: true
 
     def render_broken_game(e)
       inner = [h(:div, "We're sorry this game cannot be continued due to #{e}")]
@@ -56,6 +57,7 @@ module View
         id: game_id,
         actions: cursor ? actions.take(cursor) : actions,
         pin: @pin,
+        optional_rules: @game_data.dig('settings', 'optional_rules') || [],
       )
       store(:game, @game, skip: true)
     end
@@ -228,9 +230,9 @@ module View
     end
 
     def render_round
+      description = "#{@game.class.title}: "
       name = @round.class.name.split(':').last
-      description = "#{@game.class.title}: #{name} Round #{@game.turn}"
-      description += ".#{@round.round_num} (of #{@game.total_rounds})" if @game.total_rounds
+      description += @game.round_description(name)
       description += @game.finished ? ' - Game Over' : " - #{@round.description}"
       game_end = @game.game_ending_description
       description += " - #{game_end}" if game_end
@@ -253,11 +255,17 @@ module View
           h(Game::Round::Stock, game: @game)
         end
       when Engine::Round::Operating
-        h(Game::Round::Operating, game: @game)
-      when Engine::Round::G1846::Draft
-        h(Game::Round::Auction, game: @game, user: @user)
+        if current_actions.include?('merge')
+          h(Game::Round::Merger, game: @game)
+        else
+          h(Game::Round::Operating, game: @game)
+        end
+      when Engine::Round::Draft
+        h(Game::Round::Auction, game: @game, user: @user, before_process_pass: @before_process_pass)
       when Engine::Round::Auction
         h(Game::Round::Auction, game: @game, user: @user)
+      when Engine::Round::Merger
+        h(Game::Round::Merger, game: @game)
       end
     end
 
@@ -270,7 +278,8 @@ module View
         h(Game::HistoryControls, num_actions: @num_actions),
         h(Game::EntityOrder, round: @round),
         h(Game::Abilities, user: @user, game: @game),
-        h(Game::UndoAndPass),
+        h(Game::UndoAndPass, before_process_pass: @before_process_pass),
+        h(Game::Help, game: @game),
         render_action,
       ])
     end

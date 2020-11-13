@@ -3,10 +3,10 @@
 require_relative 'assignable'
 require_relative 'abilities'
 require_relative 'entity'
+require_relative 'operator'
 require_relative 'ownable'
 require_relative 'passer'
 require_relative 'spender'
-require_relative 'operator'
 
 module Engine
   class Minor
@@ -23,11 +23,13 @@ module Engine
     def initialize(sym:, name:, **opts)
       @name = sym
       @full_name = name
+      @floated = false
+      @closed = false
       init_operator(opts)
       init_abilities(opts[:abilities])
     end
 
-    def abilities(_type); end
+    def abilities(_type, _time = nil); end
 
     def companies
       @companies ||= []
@@ -39,6 +41,42 @@ module Engine
 
     def minor?
       true
+    end
+
+    def total_shares
+      1
+    end
+
+    def floated?
+      @floated
+    end
+
+    def float!
+      @floated = true
+    end
+
+    def inspect
+      "<#{self.class.name}: #{id}>"
+    end
+
+    def closed?
+      @closed
+    end
+
+    def share_price; end
+
+    def par_price; end
+
+    def president?(player)
+      return false unless player
+
+      owner == player
+    end
+
+    def close!
+      @closed = true
+      @floated = false
+      @owner = nil
     end
   end
 end

@@ -2,54 +2,57 @@
 
 module Engine
   class SharePrice
-    attr_reader :coordinates, :price, :color, :corporations, :can_par, :end_game_trigger
+    attr_reader :coordinates, :price, :corporations, :can_par, :type
 
-    def self.from_code(code, row, column, unlimited_colors, multiple_buy_colors: [])
+    def self.from_code(code, row, column, unlimited_types, multiple_buy_types: [])
       return nil if !code || code == ''
 
       price = code.scan(/\d/).join('').to_i
-      can_par = code.include?('p')
-      end_game_trigger = code.include?('e')
-      color =
-        case
-        when can_par
-          :red
-        when end_game_trigger
-          :blue
-        when code.include?('blk')
-          :black
-        when code.include?('b')
-          :brown
-        when code.include?('o')
-          :orange
-        when code.include?('y')
-          :yellow
+
+      type =
+        case code
+        when /p/
+          :par
+        when /e/
+          :endgame
+        when /c/
+          :close
+        when /b/
+          :multiple_buy
+        when /o/
+          :unlimited
+        when /y/
+          :no_cert_limit
+        when /l/
+          :liquidation
+        when /a/
+          :acquisition
+        when /r/
+          :repar
+        when /i/
+          :ignore_one_sale
+        when /s/
+          :safe_par
         end
 
       SharePrice.new([row, column],
                      price: price,
-                     can_par: can_par,
-                     end_game_trigger: end_game_trigger,
-                     color: color,
-                     unlimited_colors: unlimited_colors,
-                     multiple_buy_colors: multiple_buy_colors)
+                     type: type,
+                     unlimited_types: unlimited_types,
+                     multiple_buy_types: multiple_buy_types)
     end
 
     def initialize(coordinates,
                    price:,
-                   can_par: false,
-                   end_game_trigger: false,
-                   color: nil,
-                   unlimited_colors: [],
-                   multiple_buy_colors: [])
+                   type: nil,
+                   unlimited_types: [],
+                   multiple_buy_types: [])
       @coordinates = coordinates
       @price = price
-      @color = color
-      @can_par = can_par
-      @end_game_trigger = end_game_trigger
+      @type = type
       @corporations = []
-      @unlimited_colors = unlimited_colors
-      @multiple_buy_colors = multiple_buy_colors
+      @can_buy_multiple = multiple_buy_types.include?(type)
+      @limited = !unlimited_types.include?(type)
     end
 
     def id
@@ -57,15 +60,41 @@ module Engine
     end
 
     def counts_for_limit
-      !@unlimited_colors.include?(@color)
+      @limited
     end
 
     def buy_multiple?
-      @multiple_buy_colors.include?(@color)
+      @can_buy_multiple
     end
 
     def to_s
       "#{self.class.name} - #{@price} #{@coordinates}"
+    end
+
+    def can_par?
+      @type == :par
+    end
+
+    def end_game_trigger?
+      @type == :endgame
+    end
+
+    def liquidation?
+      @type == :liquidation
+    end
+
+    def acquisition?
+      @type == :acquisition
+    end
+
+    def highlight?
+      # Should it be highlighted in corporation/spreadsheet UI
+      @type && !%i[par safe_par].include?(@type)
+    end
+
+    def normal_movement?
+      # Can be moved into normally, rather than something custom such as not owning a train.
+      @type != :liquidation
     end
   end
 end

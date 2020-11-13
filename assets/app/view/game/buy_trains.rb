@@ -1,14 +1,13 @@
 # frozen_string_literal: true
 
 require 'view/game/actionable'
-require 'view/game/corporation'
-require 'view/game/sell_shares'
-require 'view/game/undo_and_pass'
+require 'view/game/emergency_money'
 
 module View
   module Game
     class BuyTrains < Snabberb::Component
       include Actionable
+      include EmergencyMoney
       needs :show_other_players, default: nil, store: true
       needs :selected_corporation, default: nil, store: true
 
@@ -17,36 +16,47 @@ module View
 
         children = []
 
-        funds_required = @depot.min_depot_price - (@corporation.cash + player.cash)
-        if funds_required.positive?
-          liquidity = @game.liquidity(player, emergency: true)
-          children << h('div',
-                        'To buy the cheapest train from the depot the president must raise '\
-                        "#{@game.format_currency(funds_required)}, and can sell "\
-                        "#{@game.format_currency(liquidity - player.cash)} in shares:")
-          props = {
-            style: {
-              display: 'inline-block',
-              verticalAlign: 'top',
-            },
-          }
+        cash = @corporation.cash + player.cash
+        share_funds_required = @depot.min_depot_price - cash
+        share_funds_allowed = if @game.class::EBUY_DEPOT_TRAIN_MUST_BE_CHEAPEST
+                                share_funds_required
+                              else
+                                @depot.max_depot_price - cash
+                              end
+        share_funds_possible = @game.liquidity(player, emergency: true) - player.cash
 
-          player.shares_by_corporation.each do |corporation, shares|
-            next if shares.empty?
+        children << h(:div, "#{player.name} must contribute "\
+                            "#{@game.format_currency(@depot.min_depot_price - @corporation.cash)} "\
+                            "for #{@corporation.name} to afford a train from the Depot.")
 
-            corp = [h(Corporation, corporation: corporation)]
+        children << h(:div, "#{player.name} has #{@game.format_currency(player.cash)} in cash.")
 
-            corp << h(SellShares, player: @corporation.owner) if @selected_corporation == corporation
-
-            children << h(:div, props, corp)
-          end
-
-          children << render_bankruptcy
-        else
-          children << h('div',
-                        'To buy the cheapest train from the depot the president must contribute'\
-                        " #{@game.format_currency(@depot.min_depot_price - @corporation.cash)}")
+        if share_funds_allowed.positive?
+          children << h(:div, "#{player.name} has #{@game.format_currency(share_funds_possible)} "\
+                              'in sellable shares.')
         end
+
+        if share_funds_required.positive?
+          children << h(:div, "#{player.name} must sell shares to raise at least "\
+                              "#{@game.format_currency(share_funds_required)}.")
+        end
+
+        if share_funds_allowed.positive? &&
+           (share_funds_allowed != share_funds_required) &&
+           (share_funds_possible >= share_funds_allowed)
+          children << h(:div, "#{player.name} may continue to sell shares until raising up to "\
+                              "#{@game.format_currency(share_funds_allowed)}.")
+        end
+
+        if share_funds_possible < share_funds_required
+          children << h(:div, "#{player.name} does not have enough liquidity to "\
+                              "contribute towards #{@corporation.name} buying a train "\
+                              "from the Depot. #{@corporation.name} must buy a "\
+                              "train from another corporation, or #{player.name} must "\
+                              'declare bankruptcy.')
+        end
+
+        children.concat(render_emergency_money_raising(player)) if share_funds_allowed.positive?
 
         children
       end
@@ -118,7 +128,17 @@ module View
 
         children << h(:h3, h3_props, 'Remaining Trains')
         children << remaining_trains
-        children.concat(render_president_contributions) if must_buy_train && @corporation.cash < @depot.min_depot_price
+
+        children << h(:div, "#{@corporation.name} has #{@game.format_currency(@corporation.cash)}.")
+        if (issuable_cash = @game.emergency_issuable_cash(@corporation)).positive?
+          children << h(:div, "#{@corporation.name} can issue shares to raise up to "\
+                              "#{@game.format_currency(issuable_cash)} (the corporation "\
+                              'must issue shares before the president may contribute).')
+        end
+
+        if must_buy_train && step.ebuy_president_can_contribute?(@corporation)
+          children.concat(render_president_contributions)
+        end
 
         props = {
           style: {
@@ -138,6 +158,7 @@ module View
             .sort_by { |_, v| v[:price] }
             .flat_map do |name, variant|
             price = variant[:price]
+            president_assist, _fee = @game.president_assisted_buy(@corporation, train, price)
             price = @ability&.discounted_price(train, price) || price
 
             buy_train = lambda do
@@ -154,7 +175,7 @@ module View
             [h(:div, name),
              h('div.nowrap', source),
              h('div.right', @game.format_currency(price)),
-             h('button.no_margin', { on: { click: buy_train } }, 'Buy')]
+             h('button.no_margin', { on: { click: buy_train } }, president_assist.positive? ? 'Assisted buy' : 'Buy')]
           end
         end
       end
@@ -170,13 +191,7 @@ module View
                 width: '3rem',
                 padding: '0 0 0 0.2rem',
               },
-              attrs: {
-                type: 'number',
-                min: 1,
-                max: @corporation.cash,
-                value: 1,
-                size: @corporation.cash.to_s.size,
-              },
+              attrs: price_range(group[0]),
             )
 
             buy_train = lambda do
@@ -222,6 +237,28 @@ module View
         trains_to_buy
       end
 
+      def price_range(train)
+        step = @game.round.active_step
+        if step.must_buy_at_face_value?(train, @corporation)
+          {
+            type: 'number',
+            min: train.price,
+            max: train.price,
+            value: train.price,
+            size: 1,
+          }
+        else
+          min, max = step.spend_minmax(@corporation, train)
+          {
+            type: 'number',
+            min: min,
+            max: max,
+            value: min,
+            size: @corporation.cash.to_s.size,
+          }
+        end
+      end
+
       def remaining_trains
         div_props = {
           style: {
@@ -245,21 +282,6 @@ module View
           h('div.bold', 'Qty'),
           *rows,
         ])
-      end
-
-      def render_bankruptcy
-        resign = lambda do
-          process_action(Engine::Action::Bankrupt.new(@corporation))
-        end
-
-        props = {
-          style: {
-            width: 'max-content',
-          },
-          on: { click: resign },
-        }
-
-        h(:button, props, 'Declare Bankruptcy')
       end
     end
   end

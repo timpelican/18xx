@@ -6,7 +6,7 @@ module Engine
   module Part
     class RevenueCenter < Node
       attr_accessor :groups
-      attr_reader :hide, :revenue, :revenue_to_render, :visit_cost, :route
+      attr_reader :hide, :revenue, :revenue_to_render, :visit_cost, :route, :loc
 
       PHASES = %i[yellow green brown gray diesel].freeze
 
@@ -15,6 +15,7 @@ module Engine
         @groups = (opts[:groups] || '').split('|')
         @hide = opts[:hide]
         @visit_cost = (opts[:visit_cost] || 1).to_i
+        @loc = opts[:loc]
 
         @route = (opts[:route] || :mandatory).to_sym
       end
@@ -49,9 +50,25 @@ module Engine
       end
 
       def route_revenue(phase, train)
-        return @revenue[:diesel] if train.name.upcase == 'D' && @revenue[:diesel]
+        revenue_multiplier(train) * route_base_revenue(phase, train)
+      end
 
-        phase.tiles.reverse.each { |color| return @revenue[color] if @revenue[color] }
+      def route_base_revenue(phase, train)
+        return (@revenue[:diesel]) if train.name.upcase == 'D' && @revenue[:diesel]
+
+        phase.tiles.reverse.each { |color| return (@revenue[color]) if @revenue[color] }
+      end
+
+      def revenue_multiplier(train)
+        distance = train.distance
+        base_multiplier = train.multiplier || 1
+
+        return base_multiplier if distance.is_a?(Numeric)
+
+        row = distance.index do |h|
+          h['nodes'].include?(type)
+        end
+        distance[row].fetch('multiplier', base_multiplier)
       end
 
       def uniq_revenues

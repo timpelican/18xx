@@ -11,12 +11,16 @@ module Engine
   module Abilities
     def init_abilities(abilities)
       @abilities = []
+      @start_count = nil
 
       (abilities || []).each do |ability|
         klass = Ability::Base.type(ability[:type])
         ability = Object.const_get("Engine::Ability::#{klass}").new(**ability)
         ability.owner = self
         @abilities << ability
+        next unless ability.start_count
+
+        @start_count = ability.start_count
       end
     end
 
@@ -62,17 +66,29 @@ module Engine
     end
 
     def remove_ability_when(time)
-      all_abilities.each do |ability|
-        remove_ability(ability) if ability.when == time.to_s
+      @abilities.dup.each do |ability|
+        remove_ability(ability) if ability.remove == time.to_s
       end
     end
 
     def all_abilities
-      @abilities.map { |a| abilities(a.type) }.compact
+      @abilities
     end
 
-    def reset_ability_count_this_or
+    def reset_ability_count_this_or!
       @abilities.each { |a| a.count_this_or = 0 }
+    end
+
+    def ability_uses
+      return unless @start_count
+
+      count = [0, @start_count]
+      # This assumes that only one ability per company has multiple uses
+      # and the ability never separates from the entity
+      @abilities.each do |a|
+        count = [a.count, a.start_count] if a.start_count
+      end
+      count
     end
   end
 end

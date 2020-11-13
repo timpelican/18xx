@@ -25,6 +25,7 @@ module Engine
     "5": 11
   },
   "startingCash": {
+    "2": 600,
     "3": 400,
     "4": 400,
     "5": 400
@@ -40,6 +41,7 @@ module Engine
     "C9": "South Bend",
     "C15": "Detroit",
     "C17": "Windsor",
+    "D6": "Chicago",
     "D14": "Toledo",
     "D20": "Erie",
     "D22": "Buffalo",
@@ -116,7 +118,7 @@ module Engine
   },
   "market": [
     [
-      "0blk",
+      "0c",
       "10",
       "20",
       "30",
@@ -155,7 +157,7 @@ module Engine
       "value": 60,
       "discount": -80,
       "revenue": 0,
-      "desc": "Starts with $60 in treasury, a 2 train, and a token in Detroit (C15). Splits revenue evenly with owner. Buyer pays an extra $80 (\"debt\").",
+      "desc": "Starts with $60 in treasury, a 2 train, and a token in Detroit (C15). In ORs, this is the first minor to operate. Splits revenue evenly with owner. Buyer pays an extra $80 (\"debt\").",
       "sym": "MS"
     },
     {
@@ -163,14 +165,14 @@ module Engine
       "value": 40,
       "discount": -60,
       "revenue": 0,
-      "desc": "Starts with $40 in treasury, a 2 train, and a token in Indianapolis (G9). Splits revenue evenly with owner. Buyer pays an extra $60 (\"debt\").",
+      "desc": "Starts with $40 in treasury, a 2 train, and a token in Indianapolis (G9). In ORs, this is the second minor to operate. Splits revenue evenly with owner. Buyer pays an extra $60 (\"debt\").",
       "sym": "BIG4"
     },
     {
       "name": "Chicago and Western Indiana",
       "value": 60,
       "revenue": 10,
-      "desc": "Reserves a token slot in Chicago (D6), when purchased the owning corporation may place an extra token at no cost.",
+      "desc": "Reserves a token slot in Chicago (D6), in the city next to E7. The owning corporation may place an extra token there at no cost, with no connection needed. Once this company is purchased by a corporation, the slot that was reserved may be used by other corporations.",
       "sym": "C&WI",
       "abilities": [
         {
@@ -179,6 +181,7 @@ module Engine
           "hexes": [
             "D6"
           ],
+          "city": 3,
           "price": 0,
           "teleport_price": 0,
           "count": 1,
@@ -186,6 +189,7 @@ module Engine
         },
         {
           "type": "reservation",
+          "remove": "sold",
           "hex": "D6",
           "city": 3
         }
@@ -224,7 +228,7 @@ module Engine
       "name": "Meat Packing Company",
       "value": 60,
       "revenue": 15,
-      "desc": "The owning corporation may place a $30 marker in either St. Louis (I1) or Chicago (D6), to add $30 to all routes run to this location.",
+      "desc": "The owning corporation may assign the Meat Packing Company to either St. Louis (I1) or Chicago (D6), to add $30 to all routes it runs to this location.",
       "sym": "MPC",
       "abilities": [
         {
@@ -248,7 +252,7 @@ module Engine
       "name": "Steamboat Company",
       "value": 40,
       "revenue": 10,
-      "desc": "Place or shift the port marker among port locations (B8, C5, D14, G19, I1). Add $20 per port symbol to all routes run to this location by the owning (or assigned) company.",
+      "desc": "At the beginning of each Operating Round, the owning player may assign the Steamboat Company to a corporation/minor and to a port location (B8, C5, D14, G19, I1). Once per Operating Round, the owning corporation may assign the Steamboat Company to a port location. Add $20 per port symbol to all routes run to the assigned location by the owning/assigned corporation/minor.",
       "sym": "SC",
       "abilities": [
         {
@@ -277,7 +281,7 @@ module Engine
             "I1",
             "G19"
           ],
-          "count": 1,
+          "count_per_or": 1,
           "owner_type": "corporation"
         },
         {
@@ -321,7 +325,7 @@ module Engine
       "name": "Michigan Central",
       "value": 40,
       "revenue": 15,
-      "desc": "The owning corporation may lay up to two extra $0 cost yellow tiles in the MC's reserved hexes (B10, B12).",
+      "desc": "The owning corporation may lay up to two extra $0 cost yellow tiles in the MC's reserved hexes (B10, B12). The owning corporation does not need to be connected to those hexes. If two tiles are laid, they must connect to each other.",
       "sym": "MC",
       "abilities": [
         {
@@ -355,7 +359,7 @@ module Engine
       "name": "Ohio & Indiana",
       "value": 40,
       "revenue": 15,
-      "desc": "The owning corporation may lay up to two extra $0 cost yellow tiles in the O&I's reserved hexes (F14, F16).",
+      "desc": "The owning corporation may lay up to two extra $0 cost yellow tiles in the O&I's reserved hexes (F14, F16). The owning corporation does not need to be connected to those hexes. If two tiles are laid, they must connect to each other.",
       "sym": "O&I",
       "abilities": [
         {
@@ -422,7 +426,7 @@ module Engine
       "abilities": [
         {
           "type": "token",
-          "description": "Reserved $40/$60 Ft. Wayne token",
+          "description": "Reserved $40/$60 Ft. Wayne (E11) token",
           "hexes": [
             "E11"
           ],
@@ -432,7 +436,7 @@ module Engine
         {
           "type": "reservation",
           "hex": "E11",
-          "remove": "4"
+          "remove": "IV"
         }
       ],
       "coordinates": "F20",
@@ -468,7 +472,7 @@ module Engine
       "abilities": [
         {
           "type": "token",
-          "description": "Reserved $40/$100 Cincinnati token",
+          "description": "Reserved $40/$100 Cincinnati (H12) token",
           "hexes": [
             "H12"
           ],
@@ -479,7 +483,7 @@ module Engine
         {
           "type": "reservation",
           "hex": "H12",
-          "remove": "4"
+          "remove": "IV"
         }
       ],
       "coordinates": "G19",
@@ -516,7 +520,7 @@ module Engine
       "abilities": [
         {
           "type": "token",
-          "description": "Reserved $40 Erie token",
+          "description": "Reserved $40 Erie (D20) token",
           "hexes": [
             "D20"
           ],
@@ -527,7 +531,7 @@ module Engine
           "type": "reservation",
           "hex": "D20",
           "slot": 1,
-          "remove": "4"
+          "remove": "IV"
         }
       ],
       "coordinates": "E21",
@@ -580,7 +584,7 @@ module Engine
         },
         {
           "type": "token",
-          "description": "Reserved $40 Centralia token",
+          "description": "Reserved $40 Centralia (I5) token",
           "hexes": [
             "I5"
           ],
@@ -590,7 +594,13 @@ module Engine
         {
           "type": "reservation",
           "hex": "I5",
-          "remove": "4"
+
+          "remove": "IV"
+        },
+        {
+           "type": "base",
+           "description": "Receives subsidy equal to its par price",
+           "remove": "par"
         }
       ],
       "coordinates": "K3",
@@ -663,7 +673,6 @@ module Engine
           "price": 900
         }
       ],
-      "num": 9,
       "events": [
         {"type": "remove_tokens"}
       ]
@@ -831,14 +840,13 @@ module Engine
     },
     "blue": {
       "": [
-        "C19",
         "D16"
       ]
     }
   },
   "phases": [
     {
-      "name": "1",
+      "name": "I",
       "train_limit": 4,
       "tiles": [
         "yellow"
@@ -849,7 +857,7 @@ module Engine
       ]
     },
     {
-      "name": "2",
+      "name": "II",
       "train_limit": 4,
       "on": "4",
       "tiles": [
@@ -862,7 +870,7 @@ module Engine
       ]
     },
     {
-      "name": "3",
+      "name": "III",
       "on": "5",
       "train_limit": 3,
       "tiles": [
@@ -873,7 +881,7 @@ module Engine
       "operating_rounds": 2
     },
     {
-      "name": "4",
+      "name": "IV",
       "on": "6",
       "train_limit": 2,
       "tiles": [

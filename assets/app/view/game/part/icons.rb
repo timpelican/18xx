@@ -8,26 +8,19 @@ module View
     module Part
       class Icons < Base
         include SmallItem
+
         ICON_RADIUS = 16
         DELTA_X = (ICON_RADIUS * 2) + 2
 
         def preferred_render_locations
-          if layout == :pointy
-            delta_y =
-              if @num_cities > 1
-                79.5
-              else
-                70.5
-              end
-
-            [{
-               region_weights: { BOTTOM_RIGHT_CORNER => 1 },
-               x: (DELTA_X / 2) * (@icons.size - 1),
-               y: delta_y,
-             }]
-
-          elsif layout == :flat
+          if layout == :pointy && @icons.one?
+            POINTY_SMALL_ITEM_LOCATIONS
+          elsif layout == :pointy
+            POINTY_WIDE_ITEM_LOCATIONS
+          elsif layout == :flat && @icons.one?
             SMALL_ITEM_LOCATIONS
+          else
+            WIDE_ITEM_LOCATIONS
           end
         end
 
@@ -41,7 +34,7 @@ module View
             h(:image,
               attrs: {
                 href: icon.image,
-                x: index * -DELTA_X,
+                x: ((index - (@icons.size - 1) / 2.0) * -DELTA_X).round(2),
                 width: "#{ICON_RADIUS * 2}px",
                 height: "#{ICON_RADIUS * 2}px",
               })

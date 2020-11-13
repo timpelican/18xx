@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
 require_relative '../base'
-require_relative '../auctioner'
+require_relative 'passable_auction'
 
 module Engine
   module Step
     module G1817
       class SelectionAuction < Base
-        include Auctioner
+        include PassableAuction
         ACTIONS = %w[bid pass].freeze
 
-        attr_reader :companies
+        attr_reader :companies, :seed_money
 
         def description
           'Bid on Companies'
@@ -20,49 +20,58 @@ module Engine
           @companies
         end
 
+        def active_entities
+          if @auctioning
+            winning_bid = highest_bid(@auctioning)
+            if winning_bid
+              return [@active_bidders[(@active_bidders.index(winning_bid.entity) + 1) % @active_bidders.size]]
+            end
+          end
+
+          super
+        end
+
         def process_pass(action)
           entity = action.entity
 
-          if auctioning_company
-            @active_bidders.delete(entity)
-            pass_auction(action.entity)
+          if auctioning
+            pass_auction(entity)
+            resolve_bids
           else
             @log << "#{entity.name} passes bidding"
             entity.pass!
             return all_passed! if entities.all?(&:passed?)
-          end
 
-          next_entity!
+            next_entity!
+          end
+        end
+
+        def entity_in_auction!(entity)
+          return false unless @active_bidders.include?(entity)
+          # Can they afford the next bid?
+          return true unless min_bid(@auctioning) > max_bid(entity, @auctioning)
+
+          @active_bidders.delete(entity)
+          pass_auction(entity)
+          resolve_bids
+          false
         end
 
         def next_entity!
           @round.next_entity_index!
           entity = entities[entity_index]
-          if auctioning_company
-            if @active_bidders.include?(entity)
-              # Can they afford the next bid?
-              if min_bid(@auctioning) > max_bid(entity, @auctioning)
-                @active_bidders.delete(entity)
-                pass_auction(entity)
-                next_entity!
-              end
-            else
-              next_entity!
-            end
-          elsif entity&.passed?
-            next_entity!
-          end
+          next_entity! if entity&.passed?
         end
 
         def process_bid(action)
           action.entity.unpass!
 
-          if auctioning_company
+          if auctioning
             add_bid(action)
           else
             selection_bid(action)
+            next_entity!
           end
-          next_entity!
         end
 
         def actions(entity)
@@ -76,10 +85,8 @@ module Engine
         end
 
         def setup
-          super
-          @companies = @game.companies.sort_by(&:min_bid)
-          @auctioning = nil
-          @active_bidders = []
+          setup_auction
+          @companies = @game.companies.dup
           @seed_money = @game.class::SEED_MONEY
         end
 
@@ -100,40 +107,11 @@ module Engine
           false
         end
 
-        def committed_cash(_player, _show_hidden = false)
-          0
-        end
-
         def max_bid(player, _company)
           player.cash
         end
 
         private
-
-        def active_company_bids
-          company = @auctioning
-          bids = @bids[company]
-          yield company, bids if bids.any?
-        end
-
-        def selection_bid(bid)
-          add_bid(bid)
-          @auctioning = bid.company
-          @auction_triggerer = bid.entity
-          @active_bidders = entities.dup
-        end
-
-        def resolve_bids
-          return unless @active_bidders.one?
-
-          winner = @bids[@auctioning].first
-          win_bid(winner.entity, winner.company, winner.price)
-          @bids.clear
-          @active_bidders.clear
-          @auctioning = nil
-          entities.each(&:unpass!)
-          @round.goto_entity!(@auction_triggerer)
-        end
 
         def add_bid(bid)
           super(bid)
@@ -149,7 +127,10 @@ module Engine
           [0, company.value - price].max
         end
 
-        def win_bid(player, company, price)
+        def win_bid(winner, _company)
+          player = winner.entity
+          company = winner.company
+          price = winner.price
           company.owner = player
           player.companies << company
           seed = seed_money_provided(company, price)
@@ -175,6 +156,13 @@ module Engine
           # Need to move entity round once more to be back to the priority deal player
           @round.next_entity_index!
           pass!
+        end
+
+        def resolve_bids
+          super
+          entities.each(&:unpass!)
+          @round.goto_entity!(@auction_triggerer)
+          next_entity!
         end
       end
     end

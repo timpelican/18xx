@@ -4,12 +4,13 @@ require_relative 'action/buy_train'
 
 module Engine
   class Phase
-    attr_reader :name, :operating_rounds, :train_limit, :tiles, :phases, :status
+    attr_reader :name, :operating_rounds, :tiles, :phases, :status, :corporation_sizes
 
     def initialize(phases, game)
       @index = 0
       @phases = phases
       @game = game
+      @depot = @game.depot
       @log = @game.log
       setup_phase!
     end
@@ -30,6 +31,10 @@ module Engine
       @phases[@index]
     end
 
+    def train_limit(entity)
+      @train_limit + train_limit_increase(entity)
+    end
+
     def available?(phase_name)
       return false unless phase_name
 
@@ -45,9 +50,10 @@ module Engine
       @tiles = Array(phase[:tiles])
       @events = phase[:events] || []
       @status = phase[:status] || []
+      @corporation_sizes = phase[:corporation_sizes]
       @next_on = @phases[@index + 1]&.dig(:on)
 
-      @log << "-- Phase #{@name.capitalize} " \
+      @log << "-- Phase #{@name} " \
         "(Operating Rounds: #{@operating_rounds}, Train Limit: #{@train_limit}, "\
         "Available Tiles: #{@tiles.map(&:capitalize).join(', ')} "\
         ') --'
@@ -68,11 +74,7 @@ module Engine
         end
       end
 
-      (@game.companies + @game.corporations).each do |c|
-        c.all_abilities.each do |ability|
-          c.remove_ability(ability) if ability.remove == @name
-        end
-      end
+      (@game.companies + @game.corporations).each { |c| c.remove_ability_when(@name) }
     end
 
     def close_companies_on_train!(entity)
@@ -91,6 +93,7 @@ module Engine
     def rust_trains!(train, entity)
       obsolete_trains = []
       rusted_trains = []
+      owners = Hash.new(0)
 
       @game.trains.each do |t|
         next if t.obsolete || t.obsolete_on != train.sym
@@ -100,20 +103,32 @@ module Engine
       end
 
       @game.trains.each do |t|
-        next if t.rusted || t.rusts_on != train.sym
+        next if t.rusted
+
+        should_rust = t.rusts_on == train.sym || (t.obsolete_on == train.sym && @depot.discarded.include?(t))
+        next unless should_rust
 
         rusted_trains << t.name
+        owners[t.owner.name] += 1
         entity.rusted_self = true if entity && entity == t.owner
         t.rust!
       end
 
       @log << "-- Event: #{obsolete_trains.uniq.join(', ')} trains are obsolete --" if obsolete_trains.any?
-      @log << "-- Event: #{rusted_trains.uniq.join(', ')} trains rust --" if rusted_trains.any?
+      @log << "-- Event: #{rusted_trains.uniq.join(', ')} trains rust " \
+        "( #{owners.map { |c, t| "#{c} x#{t}" }.join(', ')}) --" if rusted_trains.any?
     end
 
     def next!
       @index += 1
       setup_phase!
+    end
+
+    private
+
+    def train_limit_increase(entity)
+      entity.abilities(:train_limit) { |ability| return ability.increase }
+      0
     end
   end
 end

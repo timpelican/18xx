@@ -13,7 +13,7 @@ module Engine
                       yellow: '#FFF500',
                       brown: '#7b352a')
 
-      DEV_STAGE = :beta
+      DEV_STAGE = :production
 
       AXES = { x: :number, y: :letter }.freeze
       CORPORATIONS_WITHOUT_NEUTRAL = %w[CPR CN].freeze
@@ -21,11 +21,12 @@ module Engine
       load_from_json(Config::Game::G1882::JSON)
 
       GAME_LOCATION = 'Assiniboia, Canada'
-      GAME_RULES_URL = 'https://boardgamegeek.com/thread/2389239/article/35386441#35386441'
+      GAME_RULES_URL = 'https://boardgamegeek.com/filepage/206629/1882-rules'
       GAME_DESIGNER = 'Marc Voyer'
-      GAME_PUBLISHER = Publisher::INFO[:all_aboard_games]
+      GAME_PUBLISHER = :all_aboard_games
       GAME_INFO_URL = 'https://github.com/tobymao/18xx/wiki/1882'
 
+      MUST_BID_INCREMENT_MULTIPLE = true
       SELL_BUY_ORDER = :sell_buy_sell
       TRACK_RESTRICTION = :permissive
       DISCARDED_TRAINS = :remove
@@ -120,7 +121,7 @@ module Engine
         cp.add_ability(Ability::Close.new(
           type: :close,
           when: :train,
-          corporation: cp.abilities(:share).share.corporation.name,
+          corporation: cp.abilities(:shares).shares.first.corporation.name,
         ))
       end
 
@@ -178,10 +179,9 @@ module Engine
         @graph.clear_graph_for_all
       end
 
-      def revenue_for(route)
+      def revenue_for(route, stops)
         revenue = super
 
-        stops = route.stops
         # East offboards I1, B2
         east = stops.find { |stop| %w[I1 B2].include?(stop.hex.name) }
         # Hudson B12

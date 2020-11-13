@@ -223,7 +223,7 @@ module Engine
          "name":"Brown & Sons Lumber Co.",
          "value":70,
          "revenue":15,
-         "desc":"Owning corporation may during the track laying step lay the Lumber Terminal track tile (/# 445) in an empty swamp hex, which need not be connected to the corporation's station(s). The tile is free and does not count as the corporation's one tile lay per turn. Laying the tile does not close the company. The tile is permanent and cannot be upgraded.",
+         "desc":"Owning corporation may during the track laying step lay the Lumber Terminal track tile (# 445) in an empty swamp hex, which need not be connected to the corporation's station(s). The tile is free and does not count as the corporation's one tile lay per turn. Laying the tile does not close the company. The tile is permanent and cannot be upgraded.",
          "abilities": [
              {
                "type": "tile_lay",
@@ -554,7 +554,8 @@ module Engine
                   "offboard"
                ],
                "pay":4,
-               "visit":4
+               "visit":4,
+               "multiplier":2
             },
             {
                "nodes":[
@@ -615,7 +616,7 @@ module Engine
             "N3",
             "O2"
          ],
-         "upgrade=cost:20,terrain:water;icon=image:18_al/swamp":[
+         "upgrade=cost:20,terrain:swamp":[
             "G2",
             "M2",
             "N5",
@@ -728,8 +729,7 @@ module Engine
          ],
          "status":[
             "can_buy_companies",
-            "can_buy_companies_from_other_players",
-            "limited_train_buy"
+            "can_buy_companies_from_other_players"
          ],
          "operating_rounds": 2
       },

@@ -10,9 +10,12 @@ module Engine
     class G18TN < Base
       load_from_json(Config::Game::G18TN::JSON)
 
+      DEV_STAGE = :production
+
       GAME_LOCATION = 'Tennessee, USA'
       GAME_RULES_URL = 'http://dl.deepthoughtgames.com/18TN-Rules.pdf'
       GAME_DESIGNER = 'Mark Derrick'
+      GAME_PUBLISHER = :golden_spike
       GAME_END_CHECK = { bankrupt: :immediate, stock_market: :current_or, bank: :current_or }.freeze
       GAME_INFO_URL = 'https://github.com/tobymao/18xx/wiki/18TN'
 
@@ -20,16 +23,18 @@ module Engine
         'can_buy_companies_operation_round_one' =>
           ['Can Buy Companies OR 1', 'Corporations can buy companies for face value in OR 1'],
       ).merge(
-          Step::SingleDepotTrainBuyBeforePhase4::STATUS_TEXT
+          Step::SingleDepotTrainBuy::STATUS_TEXT
         ).freeze
 
       # Two lays or one upgrade
       TILE_LAYS = [{ lay: true, upgrade: true }, { lay: :not_if_upgraded, upgrade: false }].freeze
 
       HEX_WITH_P_LABEL = %w[F11 H3 H15].freeze
+      STANDARD_YELLOW_CITY_TILES = %w[5 6 57].freeze
+      GREEN_CITY_TILES = %w[14 15 619 TN1 TN2].freeze
 
       EVENTS_TEXT = Base::EVENTS_TEXT.merge(
-        'civil_war' => ['Civil War', 'Companies with trains loose revenue of one train its next OR']
+        'civil_war' => ['Civil War', 'Companies with trains lose revenue of one train its next OR']
       ).freeze
 
       include CompanyPrice50To150Percent
@@ -43,6 +48,9 @@ module Engine
         presidents_share.percent = 30
         final_share = ic.shares_by_corporation[ic].last
         @share_pool.transfer_shares(final_share.to_bundle, @bank)
+
+        @brown_p_tile ||= @tiles.find { |t| t.name == '170' }
+        @green_nashville_tile ||= @tiles.find { |t| t.name == 'TN2' }
       end
 
       def operating_round(round_num)
@@ -58,25 +66,34 @@ module Engine
         Round::Operating.new(self, [
           Step::Bankrupt,
           Step::DiscardTrain,
-          Step::SpecialTrack,
+          Step::G18TN::SpecialTrack,
           Step::G18TN::BuyCompany,
           Step::HomeToken,
-          Step::Track,
+          Step::G18TN::Track,
           Step::Token,
           Step::Route,
           Step::G18TN::Dividend,
-          Step::SingleDepotTrainBuyBeforePhase4,
+          Step::SingleDepotTrainBuy,
           [Step::BuyCompany, blocks: true],
         ], round_num: round_num)
+      end
+
+      def stock_round
+        Round::Stock.new(self, [
+          Step::BuySellParShares,
+        ])
       end
 
       def routes_revenue(routes)
         total_revenue = super
 
-        abilities = routes.first&.corporation&.abilities(:civil_war)
+        corporation = routes.first&.corporation
 
-        return total_revenue if !abilities || abilities.empty?
+        abilities = corporation&.abilities(:civil_war)
 
+        return total_revenue if !abilities || abilities.empty? || routes.size < corporation.trains.size
+
+        # The train with the lowest revenue loses the income due to the war effort
         total_revenue - routes.map(&:revenue).min
       end
 
@@ -103,34 +120,29 @@ module Engine
       end
 
       def upgrades_to?(from, to, special = false)
-        # correct color progression?
-        return false unless Engine::Tile::COLORS.index(to.color) == (Engine::Tile::COLORS.index(from.color) + 1)
+        # When upgrading from green to brown:
+        #   If Memphis (H3), Chattanooga (H15), Nashville (F11)
+        #   only brown P tile (#170) are allowed.
+        return to.name == '170' if from.color == :green && HEX_WITH_P_LABEL.include?(from.hex.name)
 
-        # honors pre-existing track?
-        return false unless from.paths_are_subset_of?(to.paths)
+        # When upgrading Nashville (F11) from yellow to green, only TN2 from green to brown:
+        return to.name == 'TN2' if from.color == :yellow && from.hex.name == 'F11'
 
-        # If special ability then remaining checks is not applicable
-        return true if special
-
-        # correct label?
-        return false if from.label != to.label && !allowed_upgrade_to_p_label?(from, to)
-
-        # honors existing town/city counts?
-        # - allow labelled cities to upgrade regardless of count; they're probably
-        #   fine (e.g., 18Chesapeake's OO cities merge to one city in brown)
-        # - TODO: account for games that allow double dits to upgrade to one town
-        return false if from.towns.size != to.towns.size
-        return false if !from.label && from.cities.size != to.cities.size
-
-        true
+        super
       end
 
-      def allowed_upgrade_to_p_label?(from, to)
-        # When upgrading from green to brown:
-        #   Memphis (H3) has no label. P label or no label is OK.
-        #   Chattanooga (H15) has C label. Only P label is OK.
-        #   Nashville (F11) has N label. Only P label is OK.
-        HEX_WITH_P_LABEL.include?(from.hex.name) && to.color == :brown && to.label.to_s == 'P'
+      def all_potential_upgrades(tile, tile_manifest: false)
+        upgrades = super
+
+        return upgrades unless tile_manifest
+
+        # Tile manifest for yellow standard cities should show N tile (TN1) as an option
+        upgrades |= [@green_nashville_tile] if @green_nashville_tile && STANDARD_YELLOW_CITY_TILES.include?(tile.name)
+
+        # Tile manifest for green cities should show P tile as an option
+        upgrades |= [@brown_p_tile] if @brown_p_tile && GREEN_CITY_TILES.include?(tile.name)
+
+        upgrades
       end
     end
   end

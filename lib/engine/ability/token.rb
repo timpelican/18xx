@@ -5,13 +5,27 @@ require_relative 'base'
 module Engine
   module Ability
     class Token < Base
-      attr_reader :hexes, :price, :teleport_price, :extra
+      attr_reader :hexes, :teleport_price, :extra, :from_owner, :discount, :city,
+                  :neutral, :cheater
 
-      def setup(hexes:, price:, teleport_price: nil, extra: nil)
+      def setup(hexes:, price: nil, teleport_price: nil, extra: nil,
+                from_owner: nil, discount: nil, city: nil, neutral: nil,
+                cheater: nil)
         @hexes = hexes
         @price = price
         @teleport_price = teleport_price
         @extra = extra || false
+        @from_owner = from_owner || false
+        @discount = discount
+        @city = city
+        @neutral = neutral || false
+        @cheater = cheater || false
+      end
+
+      def price(token = nil)
+        return @price if !token || !discount
+
+        token.price - (token.price * discount)
       end
     end
   end

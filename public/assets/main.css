@@ -75,7 +75,7 @@ input, select, textarea {
   cursor: pointer;
   margin: 0.5rem;
 }
-input:not([type=radio]):not([type=checkbox]), select {
+input:not([type=radio]):not([type=checkbox]), select:not([multiple]) {
   height: 1.5rem;
 }
 input + label, select + label {
@@ -96,7 +96,7 @@ p:last-child {
 th, td {
   padding: 0 0.3rem;
 }
-#game_info tbody > tr:hover, #spreadsheet tbody > tr:hover {
+#game_info tbody > tr:hover {
   background-color: #CCCCCC;
   color: black;
 }

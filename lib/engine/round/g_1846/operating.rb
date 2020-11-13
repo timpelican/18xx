@@ -10,6 +10,10 @@ module Engine
       class Operating < Operating
         attr_accessor :emergency_issued
 
+        def after_setup
+          super unless @game.block_for_steamboat?
+        end
+
         def start_operating
           super
 
@@ -26,7 +30,7 @@ module Engine
           else
             corporations.sort!
           end
-          @game.minors + corporations
+          @game.minors.select(&:floated?) + corporations
         end
 
         def after_process(action)

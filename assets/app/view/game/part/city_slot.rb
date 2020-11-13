@@ -16,7 +16,7 @@ module View
         needs :token
         needs :slot_index, default: 0
         needs :city
-        needs :num_cities
+        needs :edge
         needs :radius
         needs :selected_company, default: nil, store: true
         needs :tile_selector, default: nil, store: true
@@ -32,6 +32,15 @@ module View
           6 => 13,
         }.freeze
 
+        RESERVATION_VERT_SCALING = {
+          1 => 1,
+          2 => 1,
+          3 => 1,
+          4 => 1.4,
+          5 => 2.0,
+          6 => 2.0,
+        }.freeze
+
         def render_part
           children = []
           children << h(:circle, attrs: { r: @radius, fill: 'white' })
@@ -40,7 +49,7 @@ module View
 
           props = { on: { click: ->(event) { on_click(event) } } }
 
-          props[:attrs] = { transform: rotation_for_layout } if @num_cities > 1
+          props[:attrs] = { transform: rotation_for_layout } if @edge
 
           h(:g, props, children)
         end
@@ -54,6 +63,7 @@ module View
           attrs = {
             fill: 'black',
             'font-size': "#{RESERVATION_FONT_SIZE[text.size]}px",
+            transform: "scale(1.0,#{RESERVATION_VERT_SCALING[text.size]})",
             'dominant-baseline': 'central',
           }
 
@@ -72,7 +82,8 @@ module View
           entity = @selected_company || step.current_entity
           actions = step.actions(entity)
           return if (%w[remove_token place_token] & actions).empty?
-          return if @token && !step.can_replace_token?(entity, @token)
+          return if @token && !step.can_replace_token?(entity, @token) &&
+                    !(cheater = entity.abilities(:token)&.cheater)
 
           event.JS.stopPropagation
 
@@ -87,12 +98,12 @@ module View
             process_action(action)
           else
             # If there's a choice of tokens of different types show the selector, otherwise just place
-            next_tokens = step.available_tokens
+            next_tokens = step.available_tokens(entity)
             if next_tokens.size == 1 && actions.include?('place_token')
               action = Engine::Action::PlaceToken.new(
                 @selected_company || @game.current_entity,
                 city: @city,
-                slot: @slot_index,
+                slot: cheater || @slot_index,
                 token_type: next_tokens[0].type
               )
               store(:selected_company, nil, skip: true)

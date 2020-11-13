@@ -11,6 +11,7 @@ module Engine
   module Round
     class Base
       attr_reader :entities, :entity_index, :round_num, :steps
+      attr_accessor :last_to_act, :pass_order
 
       DEFAULT_STEPS = [
         Step::EndGame,
@@ -19,18 +20,21 @@ module Engine
 
       def initialize(game, steps, **opts)
         @game = game
+        @log = game.log
         @entity_index = 0
         @round_num = opts[:round_num] || 1
         @entities = select_entities
+        @last_to_act = nil
+        @pass_order = []
 
         @steps = (DEFAULT_STEPS + steps).map do |step, step_opts|
           step_opts ||= {}
           step = step.new(@game, self, **step_opts)
-          step.setup
           step.round_state.each do |key, value|
             singleton_class.class_eval { attr_accessor key }
             send("#{key}=", value)
           end
+          step.setup
           step
         end
       end
@@ -109,6 +113,12 @@ module Engine
         actions.uniq
       end
 
+      def step_for(entity, action)
+        return unless entity
+
+        @steps.find { |step| step.active? && step.actions(entity).include?(action) }
+      end
+
       def active_step(entity = nil)
         return @steps.find { |step| step.active? && step.actions(entity).any? } if entity
 
@@ -135,11 +145,15 @@ module Engine
         @active_step = nil
       end
 
+      def operating?
+        false
+      end
+
       private
 
       def skip_steps
         @steps.each do |step|
-          next if !step.active? || !step.blocks?
+          next if !step.active? || !step.blocks? || @entities[@entity_index]&.closed?
           break if step.blocking?
 
           step.skip!

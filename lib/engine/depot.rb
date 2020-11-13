@@ -35,7 +35,7 @@ module Engine
 
       train.owner.remove_train(train)
       train.owner = self
-      @discarded << train if @game.class::DISCARDED_TRAINS == :discard
+      @discarded << train if @game.class::DISCARDED_TRAINS == :discard && !train.obsolete
     end
 
     def min_price(corporation)
@@ -47,7 +47,15 @@ module Engine
     end
 
     def min_depot_price
-      min_depot_train.variants.map { |_, v| v[:price] }.min
+      return 0 unless (train = min_depot_train)
+
+      train.variants.map { |_, v| v[:price] }.min
+    end
+
+    def max_depot_price
+      return 0 unless (train = depot_trains.max_by(&:price))
+
+      train.variants.map { |_, v| v[:price] }.max
     end
 
     def unshift_train(train)
@@ -58,6 +66,12 @@ module Engine
     def remove_train(train)
       @upcoming.delete(train)
       @discarded.delete(train)
+    end
+
+    def add_train(train)
+      train.owner = self
+      @trains << train
+      @upcoming << train
     end
 
     def depot_trains
@@ -100,6 +114,10 @@ module Engine
 
     def name
       'The Depot'
+    end
+
+    def empty?
+      depot_trains.empty?
     end
   end
 end

@@ -32,7 +32,7 @@ module Engine
       end
 
       def can_buy?(entity, bundle)
-        can_gain?(entity, bundle)
+        can_gain?(entity, bundle, exchange: true)
       end
 
       def can_exchange?(entity, bundle = nil)
@@ -40,17 +40,18 @@ module Engine
         return false unless (ability = entity.abilities(:exchange))
 
         owner = entity.owner
-        return can_gain?(owner, bundle) if bundle
+        return can_gain?(owner, bundle, exchange: true) if bundle
 
-        corporation = @game.corporation_by_id(ability.corporation)
+        corporations =
+          ability.corporation == 'any' ? @game.corporations : [@game.corporation_by_id(ability.corporation)]
 
         shares = []
-        shares << corporation.available_share if ability.from.include?(:ipo)
-        shares << @game.share_pool.shares_by_corporation[corporation]&.first if ability.from.include?(:market)
+        corporations.each do |corporation|
+          shares << corporation.available_share if ability.from.include?(:ipo)
+          shares << @game.share_pool.shares_by_corporation[corporation]&.first if ability.from.include?(:market)
+        end
 
-        return true if shares.any? { |s| can_gain?(entity.owner, s&.to_bundle) }
-
-        false
+        shares.any? { |s| can_gain?(entity.owner, s&.to_bundle, exchange: true) }
       end
     end
   end

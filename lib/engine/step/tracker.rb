@@ -14,7 +14,7 @@ module Engine
         action = get_tile_lay(entity)
         return false unless action
 
-        entity.tokens.any? && (entity.cash >= action[:cost]) && (action[:lay] || action[:upgrade])
+        entity.tokens.any? && (@game.buying_power(entity) >= action[:cost]) && (action[:lay] || action[:upgrade])
       end
 
       def get_tile_lay(entity)
@@ -38,8 +38,13 @@ module Engine
         @laid_track += 1
       end
 
-      def lay_tile(action, extra_cost: 0, entity: nil)
+      def tile_lay_abilities(entity, &block)
+        entity.abilities(:tile_lay, &block)
+      end
+
+      def lay_tile(action, extra_cost: 0, entity: nil, spender: nil)
         entity ||= action.entity
+        spender ||= entity
         tile = action.tile
         hex = action.hex
         rotation = action.rotation
@@ -60,6 +65,8 @@ module Engine
           @game.game_error("#{old_tile.name} is not legally rotated for #{tile.name}")
         end
 
+        @game.add_extra_tile(tile) if tile.unlimited
+
         @game.tiles.delete(tile)
         @game.tiles << old_tile unless old_tile.preprinted
 
@@ -70,11 +77,17 @@ module Engine
         free = false
         discount = 0
 
-        entity.abilities(:tile_lay) do |ability|
-          next if !ability.hexes.include?(hex.id) || !ability.tiles.include?(tile.name)
+        tile_lay_abilities(entity) do |ability|
+          next if ability.hexes.any? && (!ability.hexes.include?(hex.id) || !ability.tiles.include?(tile.name))
+
+          @game.game_error("Track laid must be connected to one of #{spender.id}'s stations") if ability.reachable &&
+            hex.name != spender.coordinates &&
+            !@game.loading &&
+            !@game.graph.reachable_hexes(spender)[hex]
 
           free = ability.free
           discount = ability.discount
+          extra_cost += ability.cost
         end
 
         entity.abilities(:teleport) do |ability, _|
@@ -84,14 +97,17 @@ module Engine
         terrain = old_tile.terrain
         cost =
           if free
-            0
+            # call for the side effect of deleting a completed border cost
+            border_cost(tile, entity)
+
+            extra_cost
           else
             border, border_types = border_cost(tile, entity)
             terrain += border_types if border.positive?
             @game.tile_cost(old_tile, entity) + border + extra_cost - discount
           end
 
-        entity.spend(cost, @game.bank) if cost.positive?
+        spender.spend(cost, @game.bank) if cost.positive?
 
         cities = tile.cities
         if old_tile.paths.empty? &&
@@ -107,7 +123,7 @@ module Engine
 
           token.remove!
         end
-        @log << "#{action.entity.name}"\
+        @log << "#{spender.name}"\
           "#{cost.zero? ? '' : " spends #{@game.format_currency(cost)} and"}"\
           " lays tile ##{tile.name}"\
           " with rotation #{rotation} on #{hex.name}"
@@ -115,12 +131,12 @@ module Engine
         return unless terrain.any?
 
         @game.all_companies_with_ability(:tile_income) do |company, ability|
-          if terrain.include?(ability.terrain)
+          if terrain.include?(ability.terrain) && (!ability.owner_only || company.owner == entity)
             # If multiple borders are connected bonus counts each individually
             income = ability.income * terrain.find_all { |t| t == ability.terrain }.size
             @game.bank.spend(income, company.owner)
             @log << "#{company.owner.name} earns #{@game.format_currency(income)}"\
-              " for #{ability.terrain} tile with #{company.name}"
+              " for the #{ability.terrain} tile built by #{company.name}"
           end
         end
       end
@@ -157,7 +173,7 @@ module Engine
       end
 
       def check_track_restrictions!(entity, old_tile, new_tile)
-        return if @game.loading || !entity.corporation?
+        return if @game.loading || !entity.operator?
 
         old_paths = old_tile.paths
         changed_city = false
@@ -166,14 +182,18 @@ module Engine
         new_tile.paths.each do |np|
           next unless @game.graph.connected_paths(entity)[np]
 
-          op = old_paths.find { |path| path <= np }
+          op = old_paths.find { |path| np <= path }
           used_new_track = true unless op
-          changed_city = true if op&.node && op.node.max_revenue != np.node.max_revenue
+          old_revenues = op&.nodes && op.nodes.map(&:max_revenue).sort
+          new_revenues = np&.nodes && np.nodes.map(&:max_revenue).sort
+          changed_city = true unless old_revenues == new_revenues
         end
 
         case @game.class::TRACK_RESTRICTION
         when :permissive
           true
+        when :city_permissive
+          @game.game_error('Must be city tile or use new track') if new_tile.cities.none? && !used_new_track
         when :restrictive
           @game.game_error('Must use new track') unless used_new_track
         when :semi_restrictive
@@ -204,6 +224,8 @@ module Engine
       end
 
       def legal_tile_rotation?(entity, hex, tile)
+        return false unless @game.legal_tile_rotation?(entity, hex, tile)
+
         old_paths = hex.tile.paths
         old_ctedges = hex.tile.city_town_edges
 

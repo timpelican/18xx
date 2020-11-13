@@ -201,18 +201,12 @@ module Engine
          "name":"Tennessee Copper Co.",
          "value":20,
          "revenue":5,
-         "desc":"Blocks H17. Corporation owner may lay a free yellow tile in H17. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
+         "desc":"Corporation owner may lay a free yellow tile in H17. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
          "abilities":[
-            {
-               "type":"blocks_hexes",
-               "owner_type":"player",
-               "hexes":[
-                  "H17"
-               ]
-            },
             {
                "type":"tile_lay",
                "free":true,
+               "count": 1,
                "owner_type":"corporation",
                "hexes":[
                   "H17"
@@ -231,18 +225,12 @@ module Engine
          "name":"East Tennessee & Western Carolina Railroad",
          "value":40,
          "revenue":10,
-         "desc":"Blocks F19. Corporation owner may lay a free yellow tile in F19. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
+         "desc":"Corporation owner may lay a free yellow tile in F19. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
          "abilities":[
-            {
-               "type":"blocks_hexes",
-               "owner_type":"player",
-               "hexes":[
-                  "F19"
-               ]
-            },
             {
                "type":"tile_lay",
                "free":true,
+               "count": 1,
                "owner_type":"corporation",
                "hexes":[
                   "F19"
@@ -261,18 +249,12 @@ module Engine
          "name":"Memphis & Charleston Railroad",
          "value":70,
          "revenue":15,
-         "desc":"Blocks H3. Corporation owner may lay a free yellow tile in H3. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
+         "desc":"Corporation owner may lay a free yellow tile in H3. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
          "abilities":[
-            {
-               "type":"blocks_hexes",
-               "owner_type":"player",
-               "hexes":[
-                  "H3"
-               ]
-            },
             {
                "type":"tile_lay",
                "free":true,
+               "count": 1,
                "owner_type":"corporation",
                "hexes":[
                   "H3"
@@ -291,18 +273,12 @@ module Engine
          "name":"Oneida & Western Railroad",
          "value":100,
          "revenue":20,
-         "desc":"Blocks E16. Corporation owner may lay a free yellow tile in E16. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
+         "desc":"Corporation owner may lay a free yellow tile in E16. It need not be connected to an existing station token of the corporation. It does not count toward the corporation's normal limit of two yellow tile lays per turn.",
          "abilities":[
-            {
-               "type":"blocks_hexes",
-               "owner_type":"player",
-               "hexes":[
-                  "E16"
-               ]
-            },
             {
                "type":"tile_lay",
                "free":true,
+               "count": 1,
                "owner_type":"corporation",
                "hexes":[
                   "E16"
@@ -321,11 +297,11 @@ module Engine
          "name":"Louisville and Nashville Railroad",
          "value":175,
          "revenue":0,
-         "desc":"The purchaser of this private company reveives the president's certificate of the L&N Railroad and must immediately set its par value. The L&N automatically floats once this private company is purchased and is an exception to the normal rule. This private company closes immediately after the par value is set.",
+         "desc":"The purchaser of this private company receives the president's certificate of the L&N Railroad and must immediately set its par value. The L&N automatically floats once this private company is purchased and is an exception to the normal rule. This private company closes immediately after the par value is set.",
          "abilities":[
             {
-               "type":"share",
-               "share":"L&N_0"
+               "type":"shares",
+               "shares":"L&N_0"
             }
          ]
       }
@@ -489,7 +465,7 @@ module Engine
          ]
       },
       "gray":{
-         "city=revenue:30;path=a:0,b:_0;path=a:_0,b:4;path=a:4,b:_0;path=a:0,b:_0":[
+         "city=revenue:30,loc:2;path=a:0,b:_0;path=a:4,b:_0;path=a:0,b:4":[
             "B13"
          ],
          "town=revenue:yellow_30|brown_40;path=a:2,b:_0;path=a:3,b:_0;path=a:4,b:_0":[
@@ -509,11 +485,11 @@ module Engine
          ],
          "city=revenue:0;upgrade=cost:40,terrain:water":[
             "D7",
+            "F11",
             "F17",
             "H7"
          ],
          "upgrade=cost:60,terrain:mountain":[
-            "E16",
             "B15",
             "C14",
             "C18",
@@ -527,14 +503,21 @@ module Engine
             "I16",
             "J13"
          ],
+         "upgrade=cost:60,terrain:mountain;icon=image:18_tn/owr":[
+            "E16"
+         ],
          "upgrade=cost:120,terrain:mountain":[
-            "F19",
-            "H17",
             "F21",
             "G18",
             "G20"
          ],
-         "city=revenue:0;upgrade=cost:60,terrain:water":[
+         "upgrade=cost:120,terrain:mountain;icon=image:18_tn/etwcr":[
+            "F19"
+         ],
+         "upgrade=cost:120,terrain:mountain;icon=image:18_tn/tcc":[
+            "H17"
+         ],
+         "city=revenue:0;upgrade=cost:60,terrain:water;icon=image:18_tn/mcr":[
             "H3"
          ],
          "town=revenue:0;upgrade=cost:40,terrain:water":[
@@ -582,9 +565,6 @@ module Engine
          ],
          "town=revenue:10;path=a:0,b:_0;path=a:_0,b:3":[
             "D11"
-         ],
-         "city=revenue:0;label=N;upgrade=cost:40,terrain:water":[
-            "F11"
          ],
          "city=revenue:20;path=a:3,b:_0;path=a:5,b:_0":[
             "G6"

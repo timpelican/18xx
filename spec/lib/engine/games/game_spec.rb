@@ -8,58 +8,54 @@ require 'json'
 module Engine
   TEST_CASES = {
     GAMES_BY_TITLE['1846'] => {
-      4106 => {
-        'CheesePetrol' => 6137,
-        'Tim Prime' => 6338,
-        'toast' => 7585,
-        'tomusher' => 5431,
-      },
       3099 => {
-        'Blondie' => 7118,
-        'Emilybry26' => 6405,
-        'MrDiskord' => 4072,
-        'mfmise' => 6548,
+        'Blondie' => 7123,
+        'Emilybry26' => 6407,
+        'MrDiskord' => 4073,
+        'mfmise' => 6550,
         'sirstevie3' => 4907,
-      },
-      4949 => {
-        'Apreche' => 6822,
-        'GeekNightsRym' => 9154,
-        'pence' => 7002,
-      },
-      # bankruptcy sending two corps into receivership, one of them buying a
-      # train immediately; also has emergency share issuing
-      'hs_ynxuqvex_1595710756' => {
-        'Player 1' => 0,
-        'Player 2' => 0,
-        'Player 3' => 1527,
       },
       # bankruptcy sending a corp into receivership, unable to buy a train on
       # the turn of the bankruptcy, and then buying a train on its next turn
       # thanks to company income; also includes emergency share issuing
       'hs_gcumggit_1595777670' => {
         'Player 1' => 0,
-        'Player 2' => 1387,
+        'Player 2' => 1390,
         'Player 3' => 0,
       },
-      # bankruptcy that forces the new president to buy a train, which actually
-      # bankrupts them as well
-      'hs_hxrxpbjl_1595784599' => {
-        'Player 1' => 0,
-        'Player 2' => 0,
-        'Player 3' => 552,
+      # President selling a share to buy a 4T when cash + corp treasury can
+      # afford 3/5T
+      'hs_cvjhogoy_1599504419' => {
+        'Player 3' => 295,
+        'Player 2' => 285,
+        'Player 1' => 190,
       },
-      # bankruptcy where the bankruptcy action automatically issues the rest of
-      # the corporation's shares
-      'hs_qxroaokg_1595793382' => {
-        'Player 1' => 1266,
-        'Player 2' => 0,
+      'hs_sudambau_1600037415' => {
+        'Player 1' => 530,
+        'Player 2' => 508,
         'Player 3' => 0,
       },
-      'hs_cbxfbqwe_5779' => {
-        'Player 1' => 2180,
-        'Player 2' => 2091,
-        'Player 3' => 1110,
-        'Player 4' => 1589,
+    },
+    GAMES_BY_TITLE['1846 2p Variant'] => {
+      # This fixture tests all of the following behaviors, and should be
+      # replaced accordingly if it is ever removed;
+      # * both players passing triggers 2 ORs in draft
+      # * on last company, passing discounts it by $10
+      # * owning 70%
+      # * issuing fix in commit a6df06d
+      # * game end after last train is purchased
+      'hs_pzdxtics_1601680033' => {
+        'A' => 4312,
+        'B' => 2264,
+      },
+    },
+    GAMES_BY_TITLE['18 Los Angeles'] => {
+      'hs_srwgrtvq_1602711223' => {
+        'Player 2' => 8287,
+        'Player 3' => 7960,
+        'Player 1' => 7749,
+        'Player 5' => 6739,
+        'Player 4' => 4647,
       },
     },
     GAMES_BY_TITLE['18Chesapeake'] => {
@@ -92,12 +88,6 @@ module Engine
       },
     },
     GAMES_BY_TITLE['1889'] => {
-      247 => {
-        'fdinh' => 1059,
-        'gugvib' => 1073,
-        'marco4884' => 1089,
-        'vecchioleone' => 275,
-      },
       314 => {
         'Rebus' => 1134,
         'johnhawkhaines' => 320,
@@ -145,22 +135,71 @@ module Engine
         'Daisy' => 2522,
         'Cecilia' => 2498,
       },
+      # In this game all trains are bought from depot.
+      # One corporation is without trains, but as depot is
+      # empty it does not have to buy any trains.
+      # Fix of issue #1446
+      1446 => {
+        'Player 2' => 4120,
+        'Player 4' => 4057,
+        'Player 3' => 3487,
+        'Player 1' => 3362,
+      },
+    },
+    GAMES_BY_TITLE['18GA'] => {
+      9222 => {
+        'SunnyD' => 5923,
+        'LJHall' => 5382,
+        'Helen ' => 3978,
+      },
+    },
+    GAMES_BY_TITLE['18MS'] => {
+      14_375 => {
+        'A Steaming Kyle' => 3685,
+        'kjlevs89' => 3259,
+        'PJBarns' => 2301,
+      },
     },
     GAMES_BY_TITLE['18TN'] => {
-      4715 => {
-        'Player 3' => 5838,
-        'Player 1' => 5422,
-        'Player 2' => 5320,
+      7818 => {
+        'starchitect' => 5615,
+        'nigelsandwich' => 5368,
+        'wynad' => 4355,
+        'MontyBrewster71' => 4354,
+      },
+    },
+    GAMES_BY_TITLE['1817'] => {
+      # Temporary until a fuller game is finished
+      13_707 => {
+        'sandholm' => 1458,
+        'tdh' => 989,
+        'tdh_test' => 420,
+      },
+      # This game is in progress, and will be updated
+      15_528 => {
+          'PedroS' => 3392,
+          'FCR' => 3249,
+          'daniel.sousa.me' => 2389,
+          'Zebsagaz' => 1410,
+      },
+    },
+    GAMES_BY_TITLE['18MEX'] => {
+      13_315 => {
+        'Jen Freeman' => 4156,
+        'Cogust' => 3872,
+        'Swedish-Per (GMT+2)' => 3499,
+        'LenaC' => 3440,
+        'shingoi' => 3388,
       },
     },
   }.freeze
 
   TEST_CASES.each do |game, results|
-    describe game do
+    describe game.title do
       results.each do |game_id, result|
         context game_id do
           it 'matches result exactly' do
-            game_path = game.title.gsub(/(.)([A-Z])/, '\1_\2').downcase
+            game_path = game.title.gsub(/ /, '_').gsub(/([0-9])([A-Z])/, '\1_\2').downcase
             data = JSON.parse(File.read("spec/fixtures/#{game_path}/#{game_id}.json"))
             players = data['players'].map { |p| p['name'] }
             expect(game.new(players, id: game_id, actions: data['actions']).result).to eq(result)

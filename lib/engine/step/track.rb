@@ -10,9 +10,10 @@ module Engine
       ACTIONS = %w[lay_tile pass].freeze
 
       def actions(entity)
+        return [] unless entity == current_entity
         return [] if entity.company? || !can_lay_tile?(entity)
 
-        entity == current_entity ? ACTIONS : []
+        ACTIONS
       end
 
       def description
@@ -21,10 +22,6 @@ module Engine
 
       def pass_description
         @acted ? 'Done (Track)' : 'Skip (Track)'
-      end
-
-      def sequential?
-        true
       end
 
       def process_lay_tile(action)

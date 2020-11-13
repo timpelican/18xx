@@ -1,13 +1,16 @@
 # frozen_string_literal: true
 
 require 'view/game/buy_companies'
+require 'view/game/buy_special'
 require 'view/game/buy_trains'
+require 'view/game/company'
 require 'view/game/corporation'
+require 'view/game/player'
 require 'view/game/dividend'
 require 'view/game/issue_shares'
 require 'view/game/map'
-require 'view/game/undo_and_pass'
 require 'view/game/route_selector'
+require 'view/game/cash_crisis'
 
 module View
   module Game
@@ -18,19 +21,48 @@ module View
         def render
           round = @game.round
           @step = round.active_step
-          entity = round.current_entity
+          entity = @step.current_entity
           @current_actions = round.actions_for(entity)
-          entity = entity.owner if entity.company?
+
+          entity = entity.owner if entity.company? && !round.active_entities.one?
 
           left = []
+          left << h(BuySpecial) if @current_actions.include?('buy_special')
           left << h(RouteSelector) if @current_actions.include?('run_routes')
           left << h(Dividend) if @current_actions.include?('dividend')
+
           if @current_actions.include?('buy_train')
             left << h(IssueShares) if @current_actions.include?('sell_shares')
             left << h(BuyTrains)
+          elsif @current_actions.include?('sell_shares') && entity.player?
+            left << h(CashCrisis)
+          elsif @current_actions.include?('buy_shares') || @current_actions.include?('sell_shares')
+            left << h(IssueShares)
           end
-          left << h(IssueShares) if @current_actions.include?('buy_shares')
-          left << h(Corporation, corporation: entity)
+          left << h(Loans, corporation: entity) if (%w[take_loan payoff_loan] & @current_actions).any?
+
+          if entity.player?
+            left << h(Player, player: entity, game: @game)
+          elsif entity.operator? && entity.floated?
+            left << h(Corporation, corporation: entity)
+          elsif (company = entity).company?
+            left << h(Company, company: company)
+
+            if company.abilities(:assign_corporation)
+              props = {
+                style: {
+                  display: 'inline-block',
+                  verticalAlign: 'top',
+                },
+              }
+
+              @step.assignable_corporations(company).each do |corporation|
+                component = View::Game::Corporation.new(@root, corporation: corporation, selected_company: company)
+                component.store(:selected_company, company, skip: true)
+                left << h(:div, props, [component.render])
+              end
+            end
+          end
 
           div_props = {
             style: {

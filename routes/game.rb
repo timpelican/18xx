@@ -32,7 +32,7 @@ class Api
             game.to_h
           end
 
-          not_authorized! unless users.any? { |u| u.id == user.id }
+          not_authorized! unless users.any? { |u| u.id == user.id || game.user_id == user.id }
 
           r.is 'leave' do
             halt(400, 'Cannot leave because game has started') unless game.status == 'new'
@@ -84,10 +84,13 @@ class Api
                   users.map(&:name),
                   id: game.id,
                   actions: actions_h(game),
+                  optional_rules: game.settings['optional_rules']&.map(&:to_sym),
                 )
 
                 action_id = r.params['id']
                 halt(400, 'Game out of sync') unless engine.actions.size + 1 == action_id
+
+                r.params['user'] = user.name
 
                 engine = engine.process_action(r.params)
                 action = engine.actions.last.to_h
@@ -143,7 +146,11 @@ class Api
 
           # POST '/api/game/<game_id>/start
           r.is 'start' do
-            engine = Engine::GAMES_BY_TITLE[game.title].new(users.map(&:name), id: game.id)
+            engine = Engine::GAMES_BY_TITLE[game.title].new(
+              users.map(&:name),
+              id: game.id,
+              optional_rules: game.settings['optional_rules']&.map(&:to_sym),
+            )
             unless game.players.size.between?(*Engine.player_range(engine.class))
               halt(400, 'Player count not supported')
             end
@@ -176,7 +183,11 @@ class Api
             user: user,
             description: r['description'],
             max_players: r['max_players'],
-            settings: { seed: Random.new_seed },
+            settings: {
+              seed: Random.new_seed % 2**31,
+              unlisted: r['unlisted'],
+              optional_rules: r['optional_rules'],
+            },
             title: title,
             round: Engine::GAMES_BY_TITLE[title].new([]).round&.name,
           }

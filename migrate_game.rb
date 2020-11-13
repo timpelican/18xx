@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 # rubocop:disable all
+
+require_relative 'models'
+
 Dir['./models/**/*.rb'].sort.each { |file| require file }
 Sequel.extension :pg_json_ops
 require_relative 'lib/engine'
@@ -33,6 +36,18 @@ def repair(game, original_actions, actions, broken_action)
     # Move token is now place token.
     broken_action['type'] = 'place_token'
     return [broken_action]
+  elsif game.active_step.is_a?(Engine::Step::G1817::Acquire)
+    pass = Engine::Action::Pass.new(game.active_step.current_entity).to_h
+    actions.insert(action_idx, pass)
+    return
+  elsif game.active_step.is_a?(Engine::Step::G1889::SpecialTrack)
+    # laying track for Ehime Railway didn't always block, now it needs an
+    # explicit pass
+    if broken_action['entity'] != 'ER'
+      pass = Engine::Action::Pass.new(game.active_step.current_entity).to_h
+      actions.insert(action_idx, pass)
+      return
+    end
   elsif broken_action['type'] == 'pass'
     if game.active_step.is_a?(Engine::Step::Route) || game.active_step.is_a?(Engine::Step::BuyTrain)
       # Lay token sometimes needed pass when it shouldn't have
@@ -233,6 +248,7 @@ def migrate_db_actions_in_mem(data)
         data.ordered_players.map(&:name),
         id: data.id,
         actions: [],
+        optional_rules: data.settings['optional_rules']&.map(&:to_sym),
       )
     end
     puts repairs
@@ -254,6 +270,7 @@ def migrate_db_actions(data)
         data.ordered_players.map(&:name),
         id: data.id,
         actions: [],
+        optional_rules: data.settings['optional_rules']&.map(&:to_sym),
       )
     end
     if actions
@@ -271,6 +288,7 @@ def migrate_db_actions(data)
             data.ordered_players.map(&:name),
             id: data.id,
             actions: [],
+            optional_rules: data.settings['optional_rules']&.map(&:to_sym),
           )
           actions.each do |action|
             game.process_action(action)
@@ -290,7 +308,7 @@ def migrate_db_actions(data)
   rescue Exception => e
     puts 'Something went wrong', e
     puts "Pinning #{data.id}"
-    pin='00872c2d'
+    pin = 'c91f8643'
     data.settings['pin']=pin
     data.save
   end
@@ -320,7 +338,17 @@ def migrate_db_to_json(id, filename)
   File.write(filename, JSON.pretty_generate(json))
 end
 
-def migrate_all()
+def migrate_title(title)
+  DB[:games].order(:id).where(Sequel.pg_jsonb_op(:settings).has_key?('pin') => false, status: %w[active finished], title: title).select(:id).paged_each(rows_per_fetch: 1) do |game|
+    games = Game.eager(:user, :players, :actions).where(id: [game[:id]]).all
+    games.each {|data|
+      migrate_db_actions(data)
+    }
+
+  end
+end
+
+def migrate_all
   DB[:games].order(:id).where(Sequel.pg_jsonb_op(:settings).has_key?('pin') => false, status: %w[active finished]).select(:id).paged_each(rows_per_fetch: 1) do |game|
     games = Game.eager(:user, :players, :actions).where(id: [game[:id]]).all
     games.each {|data|

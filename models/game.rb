@@ -31,6 +31,7 @@ class Game < Base
         ON g.id = ug.id
       WHERE g.status = '%<status>s'
         AND ug.id IS NULL
+        AND NOT (g.status = 'new' AND COALESCE((settings->>'unlisted')::boolean, false))
       ORDER BY g.created_at DESC
       LIMIT #{QUERY_LIMIT}
       OFFSET :%<status>s_offset * #{QUERY_LIMIT - 1}
@@ -103,7 +104,7 @@ class Game < Base
 
   def to_h(include_actions: false, player: nil)
     actions_h = include_actions ? actions.map(&:to_h) : []
-    settings_h = include_actions ? settings.to_h : {}
+    settings_h = settings.to_h
 
     # Move user settings and hide from other players
     user_settings_h = settings_h.dig('players', player)

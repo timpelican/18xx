@@ -10,6 +10,7 @@ module Engine
       ACTIONS = %w[place_token pass].freeze
 
       def actions(entity)
+        return [] unless entity == current_entity
         return [] unless can_place_token?(entity)
 
         ACTIONS
@@ -25,10 +26,6 @@ module Engine
 
       def available_hex(entity, hex)
         @game.graph.reachable_hexes(entity)[hex]
-      end
-
-      def sequential?
-        true
       end
 
       def process_place_token(action)

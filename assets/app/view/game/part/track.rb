@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
 require 'lib/settings'
-require 'view/game/part/track_curvilinear_path'
-require 'view/game/part/track_curvilinear_half_path'
-require 'view/game/part/track_lawson_path'
+require 'view/game/part/track_node_path'
 require 'view/game/part/track_offboard'
+require 'view/game/part/track_stub'
 
 module View
   module Game
@@ -29,71 +28,54 @@ module View
           # Array<Array<Path>>
           @routes_paths = @routes.map { |route| route.paths_for(@tile.paths) }
 
-          if @tile.offboards.any?
-            @tile.paths.select(&:offboard).map do |path|
-              h(TrackOffboard, offboard: path.offboard, path: path, region_use: @region_use,
-                               color: value_for(path, :color), width: value_for(path, :width),
-                               dash: value_for(path, :dash),)
-            end
-          elsif @tile.lawson?
-            @tile.paths.select { |path| path.edges.one? }.map do |path|
-              h(TrackLawsonPath, path: path, region_use: @region_use,
-                                 color: value_for(path, :color), width: value_for(path, :width),
-                                 dash: value_for(path, :dash),)
-            end
-          elsif @tile.towns.any?
-            render_track_for_curvilinear_town
-          elsif @tile.cities.any?
-            render_track_for_curvilinear_city
-          else
-            @tile.paths.select { |path| path.edges.size == 2 }
-            .map { |path| [path, index_for(path)] }
+          paths_and_stubs = @tile.paths + @tile.stubs
+          path_indexes = paths_and_stubs.map { |p| [p, indexes_for(p)] }.to_h
+
+          sorted = paths_and_stubs
+            .flat_map { |path| path_indexes[path].map { |i| [path, i] } }
             .sort_by { |_, index| index || -1 }
-            .map do |path, index|
-              h(TrackCurvilinearPath, region_use: @region_use, path: path, color: value_for_index(index, :color),
-                                      width: value_for(path, :width), dash: value_for(path, :dash),)
+
+          sorted.map do |path, index|
+            props = {
+              color: value_for_index(index, :color),
+              width: width_for_index(path, index, path_indexes),
+              dash: value_for_index(index, :dash),
+            }
+
+            if path.stub?
+              h(TrackStub, stub: path, region_use: @region_use, **props)
+            elsif path.offboard
+              h(TrackOffboard, offboard: path.offboard, path: path, region_use: @region_use, **props)
+            else
+              h(TrackNodePath, tile: @tile, path: path, region_use: @region_use, **props)
             end
           end
         end
 
         private
 
-        def render_track_for_curvilinear_city
-          @tile.cities.flat_map do |city|
-            exits = city.exits
+        def indexes_for(path)
+          indexes = @routes_paths
+            .map.with_index
+            .select { |route_paths, _index| route_paths.any? { |p| path == p } }
+            .flat_map { |_, index| index }
 
-            city.paths.map do |path|
-              h(TrackCurvilinearHalfPath, exits: exits, path: path, region_use: @region_use,
-                                          color: value_for(path, :color), width: value_for(path, :width),
-                                          dash: value_for(path, :dash),)
-            end
-          end
-        end
-
-        def render_track_for_curvilinear_town
-          @tile.towns.flat_map do |town|
-            exits = town.exits
-
-            town.paths.map do |path|
-              h(TrackCurvilinearHalfPath, exits: exits, path: path, region_use: @region_use,
-                                          color: value_for(path, :color), width: value_for(path, :width),
-                                          dash: value_for(path, :dash),)
-            end
-          end
-        end
-
-        def index_for(path)
-          @routes_paths.find_index do |route_paths|
-            route_paths.any? { |p| path == p }
-          end
+          indexes.empty? ? [nil] : indexes
         end
 
         def value_for_index(index, prop)
           index ? route_prop(index, prop) : TRACK[prop]
         end
 
-        def value_for(path, prop)
-          value_for_index(index_for(path), prop)
+        def width_for_index(path, index, path_indexes)
+          multiplier =
+            if !index || path_indexes[path].one?
+              1
+            else
+              [1, 3 * path_indexes[path].reverse.index(index)].max
+            end
+
+          value_for_index(index, :width).to_f * multiplier.to_i
         end
       end
     end

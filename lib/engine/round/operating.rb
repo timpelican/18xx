@@ -5,28 +5,28 @@ require_relative 'base'
 module Engine
   module Round
     class Operating < Base
+      def self.short_name
+        'OR'
+      end
+
       def name
         'Operating Round'
       end
 
       def select_entities
-        @game.minors + @game.corporations.select(&:floated?).sort
+        @game.minors.select(&:floated?) + @game.corporations.select(&:floated?).sort
       end
 
       def setup
         @home_token_timing = @game.class::HOME_TOKEN_TIMING
         @game.payout_companies
         @entities.each { |c| @game.place_home_token(c) } if @home_token_timing == :operating_round
-        (@game.corporations + @game.minors + @game.companies).each(&:reset_ability_count_this_or)
-        start_operating unless @entities.empty?
+        (@game.corporations + @game.minors + @game.companies).each(&:reset_ability_count_this_or!)
+        after_setup
       end
 
-      def before_process(action)
-        # this is crap, we should block when this happens
-        return if action.type == 'message' || action.entity == @just_sold_company
-
-        @just_sold_company&.remove_ability_when(:sold)
-        @just_sold_company = nil
+      def after_setup
+        start_operating unless @entities.empty?
       end
 
       def after_process(action)
@@ -49,6 +49,8 @@ module Engine
         return if @entity_index == @entities.size - 1
 
         next_entity_index!
+        return next_entity! if @entities[@entity_index].closed?
+
         @steps.each(&:unpass!)
         @steps.each(&:setup)
         start_operating
@@ -60,8 +62,8 @@ module Engine
           entity.remove_ability(ability)
         end
         entity.trains.each { |train| train.operated = false }
+        @log << "#{entity.owner.name} operates #{entity.name}" unless finished?
         @game.place_home_token(entity) if @home_token_timing == :operate
-        @game.log << "#{entity.owner.name} operates #{entity.name}" unless finished?
         skip_steps
         next_entity! if finished?
       end
@@ -75,6 +77,10 @@ module Engine
 
       def teleported?(entity)
         entity.abilities(:teleport)&.find(&:used?)
+      end
+
+      def operating?
+        true
       end
     end
   end

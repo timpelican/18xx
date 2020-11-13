@@ -78,15 +78,16 @@ module Engine
       # Some 18xx games can only buy one share per turn.
       def can_buy?(entity, bundle)
         return unless bundle
+        return unless bundle.buyable
 
         corporation = bundle.corporation
         entity.cash >= bundle.price && can_gain?(entity, bundle) &&
           !@players_sold[entity][corporation] &&
-          (can_buy_multiple?(corporation) || !bought?)
+          (can_buy_multiple?(entity, corporation) || !bought?)
       end
 
       def must_sell?(entity)
-        entity.num_certs > @game.cert_limit ||
+        @game.num_certs(entity) > @game.cert_limit ||
           !@game.corporations.all? { |corp| corp.holding_ok?(entity) }
       end
 
@@ -103,6 +104,8 @@ module Engine
             corporation.operated?
           when :p_any_operate
             corporation.operated? || corporation.president?(entity)
+          when :any_time
+            true
           else
             raise NotImplementedError
           end
@@ -132,35 +135,42 @@ module Engine
 
       def process_buy_shares(action)
         buy_shares(action.entity, action.bundle)
+        @round.last_to_act = action.entity
         @current_actions << action
       end
 
       def process_sell_shares(action)
         sell_shares(action.entity, action.bundle)
+        @round.last_to_act = action.entity
         @current_actions << action
       end
 
       def process_par(action)
         share_price = action.share_price
         corporation = action.corporation
-        @game.game_error("#{corporation} cannot be parred") unless corporation.can_par?(action.entity)
+        entity = action.entity
+        @game.game_error("#{corporation} cannot be parred") unless corporation.can_par?(entity)
 
         @game.stock_market.set_par(corporation, share_price)
         share = corporation.shares.first
-        buy_shares(action.entity, share.to_bundle)
+        buy_shares(entity, share.to_bundle)
+        @game.after_par(corporation)
+        @round.last_to_act = entity
         @current_actions << action
       end
 
       def pass!
         super
         if @current_actions.any?
+          @round.pass_order.delete(current_entity)
           current_entity.unpass!
         else
+          @round.pass_order |= [current_entity]
           current_entity.pass!
         end
       end
 
-      def can_buy_multiple?(corporation)
+      def can_buy_multiple?(_entity, corporation)
         corporation.buy_multiple? &&
          @current_actions.none? { |x| x.is_a?(Action::Par) } &&
          @current_actions.none? { |x| x.is_a?(Action::BuyShares) && x.bundle.corporation != corporation }
@@ -168,7 +178,7 @@ module Engine
 
       def can_sell_any?(entity)
         @game.corporations.any? do |corporation|
-          bundles = entity.bundles_for_corporation(corporation)
+          bundles = @game.bundles_for_corporation(entity, corporation)
           bundles.any? { |bundle| can_sell?(entity, bundle) }
         end
       end

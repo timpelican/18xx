@@ -17,12 +17,12 @@ module Engine
       end
 
       def can_buy_company?(entity)
-        companies = @game.purchasable_companies
+        companies = @game.purchasable_companies(entity)
 
         entity == current_entity &&
           @game.phase.status.include?('can_buy_companies') &&
           companies.any? &&
-          companies.map(&:min_price).min <= entity.cash
+          companies.map(&:min_price).min <= @game.buying_power(entity)
       end
 
       def blocks?
@@ -35,10 +35,6 @@ module Engine
 
       def pass_description
         @acted ? 'Done (Companies)' : 'Skip (Companies)'
-      end
-
-      def sequential?
-        true
       end
 
       def process_buy_company(action)
@@ -60,15 +56,25 @@ module Engine
         owner.companies.delete(company)
 
         company.abilities(:assign_corporation) do |ability|
-          Assignable.remove_from_all!(@game.corporations, company.id) do |unassigned|
+          Assignable.remove_from_all!(assignable_corporations, company.id) do |unassigned|
             log_later << "#{company.name} is unassigned from #{unassigned.name}" if unassigned.name != entity.name
           end
           entity.assign!(company.id)
           ability.use!
           log_later << "#{company.name} is assigned to #{entity.name}"
+
+          log_later <<
+            if (assigned_hex = @game.hexes.find { |h| h.assigned?(company.id) })
+              "#{company.name} is still assigned to #{assigned_hex.name}"
+            else
+              "#{company.name} is not assigned to a hex"
+            end
         end
 
+        company.remove_ability_when(:sold)
+
         @round.just_sold_company = company
+        @round.company_seller = owner
 
         entity.companies << company
         entity.spend(price, owner)
@@ -76,8 +82,12 @@ module Engine
         log_later.each { |l| @log << l }
       end
 
+      def assignable_corporations(_company = nil)
+        @game.corporations
+      end
+
       def round_state
-        { just_sold_company: nil }
+        { just_sold_company: nil, company_seller: nil }
       end
 
       def setup

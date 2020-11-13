@@ -7,27 +7,30 @@ module Engine
     def self.connect!(hex)
       connections = {}
 
-      node_paths, paths = hex.tile.paths.partition(&:node)
+      node_paths, paths = hex.tile.paths.partition(&:node?)
 
       paths.each do |path|
-        path.walk { |p| node_paths << p if p.node }
+        path.walk { |p| node_paths << p if p.node? }
       end
 
       node_paths.uniq.each do |node_path|
-        connection = Connection.new
-        node_path.walk do |path|
-          hex = path.hex
-          connection = connection.branch!(path)
-          next if connection.paths.include?(path)
-          next if connection.nodes.include?(path.node)
-          next if connection.paths.any? { |p| p.hex == hex && (p.exits & path.exits).any? }
+        node_path.walk(chain: []) do |chain|
+          next unless valid_connection?(chain)
 
+          connection = Connection.new(chain)
           connections[connection] = true
-          connection.add_path(path)
 
-          path.exits.each do |edge|
-            hex_connections = hex.connections[edge]
-            hex_connections << connection unless hex_connections.include?(connection)
+          chain.each do |path|
+            hex = path.hex
+            if path.exits.empty?
+              hex_connections = hex.connections[:internal]
+              hex_connections << connection
+            else
+              path.exits.each do |edge|
+                hex_connections = hex.connections[edge]
+                hex_connections << connection
+              end
+            end
           end
         end
       end
@@ -46,6 +49,31 @@ module Engine
       end
     end
 
+    def self.valid_connection?(chain)
+      path_hist = {}
+      end_hist = Hash.new(0)
+
+      chain.each do |path|
+        # invalid if path appears twice
+        return false if path_hist[path]
+
+        path_hist[path] = true
+        a = path.a
+        b = path.b
+
+        # invalid if edge or node appears more than once, or junction appears more than twice (loops)
+        return false if !a.junction? && end_hist[a.id].positive?
+        return false if !b.junction? && end_hist[b.id].positive?
+        return false if end_hist[a.id] > 1
+        return false if end_hist[b.id] > 1
+
+        end_hist[a.id] += 1
+        end_hist[b.id] += 1
+      end
+
+      true
+    end
+
     def initialize(paths = [])
       @paths = paths
       @nodes = nil
@@ -61,26 +89,17 @@ module Engine
       @id ||=
         begin
           sorted = []
-          path_map = {}
-          node_path = nil
+          junction_map = {}
 
+          # skip over paths that have a junction we've already seen
           @paths.each do |path|
-            node_path = path if path.node
-            path_map[path] = true
-          end
-
-          node_path.walk(on: path_map) do |path|
-            sorted << path
+            sorted << path if !junction_map[path.a] && !junction_map[path.b]
+            junction_map[path.a] = true if path.a.junction?
+            junction_map[path.b] = true if path.b.junction?
           end
 
           sorted.map { |path| path.hex.id }
         end
-    end
-
-    def add_path(path)
-      @paths << path
-      clear_cache
-      raise 'Connection cannot have more than two nodes' if nodes.size > 2
     end
 
     def clear_cache
@@ -90,7 +109,7 @@ module Engine
     end
 
     def nodes
-      @nodes ||= @paths.map(&:node).compact
+      @nodes ||= @paths.flat_map(&:nodes)
     end
 
     def hexes
@@ -103,21 +122,6 @@ module Engine
 
     def include?(hex)
       hexes.include?(hex)
-    end
-
-    def branch!(path)
-      branched_paths = path.select(@paths)
-      return self if @paths.size == branched_paths.size
-
-      branch = self.class.new(branched_paths)
-
-      branched_paths.each do |p|
-        p.exits.each do |edge|
-          p.hex.connections[edge] << branch
-        end
-      end
-
-      branch
     end
 
     def inspect
