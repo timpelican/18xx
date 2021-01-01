@@ -96,6 +96,15 @@ module Engine
         step.acted = true
         step.send("process_#{action.type}", action)
 
+        if (graph = action.graph)
+          entity = @game.corporation_by_id(graph['entity'])
+          @game.graph.instance_variable_get('@tokens')[entity] = graph['can_token']
+          @game.graph.instance_variable_get('@routes')[entity] = {
+            route_available: graph['route_available'],
+            route_train_purchase: graph['route_train_purchase'],
+          }
+        end
+
         skip_steps
         clear_cache!
         after_process(action)

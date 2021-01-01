@@ -8,12 +8,13 @@ module Engine
       include Helper::Type
 
       attr_reader :entity
-      attr_accessor :id, :user
+      attr_accessor :id, :user, :graph
 
       def self.from_h(h, game)
         entity = game.get(h['entity_type'], h['entity']) || Player.new(nil, h['entity'])
         obj = new(entity, **h_to_args(h, game))
         obj.user = h['user'] if entity.player && h['user'] != entity.player&.id
+        obj.graph = h['graph']
         obj
       end
 

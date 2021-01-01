@@ -90,6 +90,7 @@ module Engine
     end
 
     def compute(corporation)
+      # puts "** compute #{corporation.id} **"
       hexes = Hash.new { |h, k| h[k] = {} }
       nodes = {}
       paths = {}

@@ -191,12 +191,13 @@ module Engine
     end
 
     def all_abilities
-      @companies.flat_map(&:all_abilities) + @abilities
+      @all_abilities ||= @companies.flat_map(&:all_abilities).concat(@abilities)
     end
 
     def remove_ability(ability)
       return super if ability.owner == self
 
+      @all_abilities = nil
       @companies.each { |company| company.remove_ability(ability) }
     end
 

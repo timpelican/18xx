@@ -474,7 +474,9 @@ module Engine
         log_optional_rules
         setup
 
+        x = Time.now
         initialize_actions(actions)
+        puts Time.now - x
 
         return unless pin
 
@@ -569,13 +571,13 @@ module Engine
               # in dev mode to preserve the backtrace
               process_action(action)
             else
-              begin
+              #begin
                 process_action(action)
-              rescue Engine::GameError => e
-                @exception = e
-                @actions << action
-                break
-              end
+              #rescue Engine::GameError => e
+              #  @exception = e
+              #  @actions << action
+              #  break
+              #end
             end
           else
             # Restore the original action to the list to ensure action ids remain consistent but don't apply them
@@ -879,6 +881,8 @@ module Engine
       def revenue_str(route)
         route.hexes.map(&:name).join('-')
       end
+
+      def subsidy_for(_route, _stops); end
 
       def float_str(entity)
         "#{entity.percent_to_float}% to float" if entity.corporation?

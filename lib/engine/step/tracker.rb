@@ -72,6 +72,7 @@ module Engine
         @game.tiles << old_tile unless old_tile.preprinted
 
         hex.lay(tile)
+        @game.hexes.each(&:invalidate_connections)
 
         @game.graph.clear
         free = false

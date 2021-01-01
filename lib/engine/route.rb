@@ -18,7 +18,7 @@ module Engine
       @game = game
       @stops = nil
       @halts = halts
-      restore_connections(connection_hexes) if connection_hexes
+      restore_connections(connection_hexes) if connection_hexes && !override
     end
 
     def reset!
@@ -224,6 +224,8 @@ module Engine
     end
 
     def subsidy
+      return @override[:subsidy] if @override
+
       @game.subsidy_for(self, stops)
     end
 

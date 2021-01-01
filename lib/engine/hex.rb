@@ -182,8 +182,8 @@ module Engine
 
       @tile = tile
 
-      invalidate_connections
-      invalidate_connected
+      #invalidate_connections
+      #invalidate_connected
       @paths = nil
     end
 

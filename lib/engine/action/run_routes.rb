@@ -27,6 +27,7 @@ module Engine
             override = {
               hexes: hex_ids.map { |id| game.hex_by_id(id) },
               revenue: route['revenue'],
+              subsidy: route['subsidy'],
             }
           end
 
@@ -57,6 +58,7 @@ module Engine
           else # legacy routes
             h['hexes'] = route.hexes.map(&:id)
             h['revenue'] = route.revenue
+            h['subsidy'] = route.subsidy
           end
 
           h
